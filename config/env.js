@@ -1,24 +1,36 @@
 import dotenv from 'dotenv';
-   import path from 'path';
-   import { fileURLToPath } from 'url';
 
-   const __filename = fileURLToPath(import.meta.url);
-   const __dirname = path.dirname(__filename);
+     // Load .env file only in development (optional for Railway)
+     if (process.env.NODE_ENV !== 'production') {
+       const result = dotenv.config({ path: './.env' });
+       if (result.error && result.error.code !== 'ENOENT') {
+         console.error('Error loading .env file:', result.error);
+       } else if (result.error) {
+         console.log('No .env file found locally; relying on environment variables.');
+       }
+     }
 
-   const envPath = path.resolve(__dirname, '../.env');
-   console.log('Loading .env from:', envPath);
-   const dotenvResult = dotenv.config({ path: envPath });
+     // Validate required environment variables
+     const requiredEnvVars = [
+       'MONGODB_URI',
+       'STRIPE_SECRET_KEY',
+       'JWT_SECRET',
+       'PAYHERE_MERCHANT_ID',
+       'PAYHERE_MERCHANT_SECRET',
+       'PAYHERE_CURRENCY'
+     ];
 
-   if (dotenvResult.error) {
-     console.error('Error loading .env file:', dotenvResult.error);
-     process.exit(1); // Exit if .env fails to load
-   } else {
-     console.log('.env file loaded successfully');
-     console.log('Environment variables:');
-     console.log('PORT:', process.env.PORT);
-     console.log('MONGODB_URI:', process.env.MONGODB_URI);
-     console.log('JWT_SECRET:', process.env.JWT_SECRET);
-     console.log('STRIPE_SECRET_KEY:', process.env.STRIPE_SECRET_KEY);
-   }
+     const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+     if (missingVars.length > 0) {
+       throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+     }
 
-   export default dotenvResult;
+     export default {
+       MONGODB_URI: process.env.MONGODB_URI,
+       STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+       STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || null, // Optional
+       JWT_SECRET: process.env.JWT_SECRET,
+       PAYHERE_MERCHANT_ID: process.env.PAYHERE_MERCHANT_ID,
+       PAYHERE_MERCHANT_SECRET: process.env.PAYHERE_MERCHANT_SECRET,
+       PAYHERE_CURRENCY: process.env.PAYHERE_CURRENCY
+     };
