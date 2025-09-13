@@ -28,7 +28,7 @@ import dotenv from 'dotenv';
      export default {
        MONGODB_URI: process.env.MONGODB_URI,
        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
-       STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || null, // Optional
+      //  STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || null, // Optional
        JWT_SECRET: process.env.JWT_SECRET,
        PAYHERE_MERCHANT_ID: process.env.PAYHERE_MERCHANT_ID,
        PAYHERE_MERCHANT_SECRET: process.env.PAYHERE_MERCHANT_SECRET,
