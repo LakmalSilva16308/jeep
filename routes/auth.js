@@ -39,6 +39,7 @@ router.post('/login', async (req, res) => {
   const { email, password, role } = req.body;
 
   try {
+    console.log('Login attempt:', { email, role });
     if (!email || !password || !role) {
       return res.status(400).json({ error: 'Email, password, and role are required' });
     }
@@ -68,8 +69,8 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign({ id: user._id, role }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    console.log('Generated token:', token); // Log token for debugging
-    return res.json({ token });
+    console.log('Generated token for user:', { id: user._id, role, token });
+    return res.json({ token, role });
   } catch (err) {
     console.error('Login error:', err.message, err.stack);
     return res.status(500).json({ error: 'Server error' });
@@ -78,16 +79,10 @@ router.post('/login', async (req, res) => {
 
 // Tourist signup
 router.post('/tourist/signup', async (req, res) => {
-  let fullName, email, password, country;
-  
-  // Handle both JSON and multipart/form-data
-  if (req.is('multipart/form-data')) {
-    ({ fullName, email, password, country } = req.body);
-  } else {
-    ({ fullName, email, password, country } = req.body);
-  }
+  let { fullName, email, password, country } = req.body;
 
   try {
+    console.log('Tourist signup attempt:', { fullName, email, country });
     if (!fullName || !email || !password || !country) {
       return res.status(400).json({ error: 'All fields are required' });
     }
@@ -98,8 +93,8 @@ router.post('/tourist/signup', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const tourist = await Tourist.create({ fullName, email, password: hashedPassword, country });
     const token = jwt.sign({ id: tourist._id, role: 'tourist' }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    console.log('Tourist signup token:', token); // Log token for debugging
-    return res.json({ token });
+    console.log('Tourist signup token:', { id: tourist._id, token });
+    return res.json({ token, role: 'tourist' });
   } catch (err) {
     console.error('Tourist signup error:', err.message, err.stack);
     return res.status(500).json({ error: 'Server error' });
@@ -125,8 +120,8 @@ router.post('/provider/signup', upload.fields([
     if (existingProvider) return res.status(400).json({ error: 'Email already exists' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const profilePicture = req.files.profilePicture[0].path.replace(/\\/g, '/').split('/').pop();
-    const photos = req.files.photos.map(file => file.path.replace(/\\/g, '/').split('/').pop());
+    const profilePicture = req.files.profilePicture[0].path.replace(/\\/g, '/').split('uploads/').pop();
+    const photos = req.files.photos.map(file => file.path.replace(/\\/g, '/').split('uploads/').pop());
 
     const provider = await Provider.create({
       serviceName,
@@ -144,8 +139,8 @@ router.post('/provider/signup', upload.fields([
     });
 
     const token = jwt.sign({ id: provider._id, role: 'provider' }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    console.log('Provider signup token:', token); // Log token for debugging
-    return res.json({ token });
+    console.log('Provider signup token:', { id: provider._id, token });
+    return res.json({ token, role: 'provider' });
   } catch (err) {
     console.error('Provider signup error:', err.message, err.stack);
     return res.status(500).json({ error: `Server error: ${err.message}` });

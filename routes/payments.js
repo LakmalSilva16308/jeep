@@ -1,136 +1,138 @@
 import express from 'express';
-     import stripe from 'stripe';
-     import mongoose from 'mongoose';
-     import Booking from '../models/Booking.js';
-     import { authenticateToken } from '../middleware/auth.js';
-     import crypto from 'crypto';
-     import env from '../config/env.js';
+import stripe from 'stripe';
+import mongoose from 'mongoose';
+import Booking from '../models/Booking.js';
+import { authenticateToken } from '../middleware/auth.js';
+import crypto from 'crypto';
+import env from '../config/env.js';
 
-     const router = express.Router();
+const router = express.Router();
 
-     // Initialize Stripe
-     if (!env.STRIPE_SECRET_KEY) {
-       console.error('STRIPE_SECRET_KEY is not defined');
-       throw new Error('STRIPE_SECRET_KEY is not defined');
-     }
-     const stripeInstance = stripe(env.STRIPE_SECRET_KEY);
+const stripeInstance = stripe(env.STRIPE_SECRET_KEY);
 
-     // Create payment intent (Stripe or PayHere)
-     router.post('/create-intent', authenticateToken, async (req, res) => {
-       try {
-         console.log('Creating payment intent for user:', { userId: req.user.id, role: req.user.role, payload: req.body });
-         if (req.user.role !== 'tourist') {
-           return res.status(403).json({ error: 'Access denied: Only tourists can create payments' });
-         }
+router.post('/create-intent', authenticateToken, async (req, res) => {
+  try {
+    console.log('Creating payment intent for user:', { userId: req.user.id, role: req.user.role, payload: req.body });
+    if (req.user.role !== 'tourist') {
+      return res.status(403).json({ error: 'Access denied: Only tourists can create payments' });
+    }
 
-         const { bookingId, paymentMethod } = req.body;
-         if (!mongoose.Types.ObjectId.isValid(bookingId)) {
-           return res.status(400).json({ error: 'Invalid Booking ID' });
-         }
+    const { bookingId, paymentMethod } = req.body;
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({ error: 'Invalid Booking ID' });
+    }
 
-         const booking = await Booking.findById(bookingId).populate('providerId');
-         if (!booking || booking.status !== 'pending' || booking.touristId.toString() !== req.user.id.toString()) {
-           return res.status(400).json({ error: 'Invalid or unauthorized booking' });
-         }
+    const booking = await Booking.findById(bookingId).populate('providerId touristId');
+    if (!booking || booking.status !== 'pending' || booking.touristId._id.toString() !== req.user.id.toString()) {
+      return res.status(400).json({ error: 'Invalid or unauthorized booking' });
+    }
 
-         if (paymentMethod === 'stripe') {
-           const paymentIntent = await stripeInstance.paymentIntents.create({
-             amount: Math.round(booking.totalPrice * 100), // Cents for USD
-             currency: 'usd',
-             metadata: {
-               bookingId: booking._id.toString(),
-               touristId: req.user.id.toString(),
-               providerId: booking.providerId._id.toString()
-             }
-           });
+    const baseUrl = process.env.NODE_ENV === 'production' ? 'https://jeep-booking-frontend.vercel.app' : 'http://localhost:3000';
+    const notifyUrl = process.env.NODE_ENV === 'production' ? 'https://jeep-booking-backend-production.up.railway.app/api/payments/payhere-notification' : 'http://localhost:5000/api/payments/payhere-notification';
 
-           console.log('Stripe payment intent created:', { paymentIntentId: paymentIntent.id, amount: paymentIntent.amount });
-           res.json({ clientSecret: paymentIntent.client_secret, method: 'stripe' });
-         } else if (paymentMethod === 'payhere') {
-           const orderId = booking._id.toString();
-           const amount = booking.totalPrice.toFixed(2);
-           const hash = crypto.createHash('md5')
-             .update(env.PAYHERE_MERCHANT_ID + orderId + amount + env.PAYHERE_CURRENCY + env.PAYHERE_MERCHANT_SECRET)
-             .digest('hex')
-             .toUpperCase();
+    if (paymentMethod === 'stripe') {
+      const paymentIntent = await stripeInstance.paymentIntents.create({
+        amount: Math.round(booking.totalPrice * 100),
+        currency: 'usd',
+        metadata: {
+          bookingId: booking._id.toString(),
+          touristId: req.user.id.toString(),
+          providerId: booking.providerId._id.toString()
+        }
+      });
+      console.log('Stripe payment intent created:', { paymentIntentId: paymentIntent.id, amount: paymentIntent.amount });
+      res.json({ clientSecret: paymentIntent.client_secret, method: 'stripe' });
+    } else if (paymentMethod === 'payhere') {
+      const orderId = booking._id.toString();
+      const amount = booking.totalPrice.toFixed(2);
+      const merchantId = env.PAYHERE_MERCHANT_ID;
+      const merchantSecret = env.PAYHERE_MERCHANT_SECRET;
+      const currency = env.PAYHERE_CURRENCY || 'LKR';
 
-           const payHereData = {
-             merchant_id: env.PAYHERE_MERCHANT_ID,
-             return_url: process.env.NODE_ENV === 'production' ? 'https://jeepbooking.tk/payment-success' : 'http://localhost:3000/payment-success',
-             cancel_url: process.env.NODE_ENV === 'production' ? 'https://jeepbooking.tk/payment-cancel' : 'http://localhost:3000/payment-cancel',
-             notify_url: process.env.NODE_ENV === 'production' ? 'https://api.jeepbooking.tk/api/payments/payhere-notification' : 'https://your-ngrok-url.ngrok.io/api/payments/payhere-notification',
-             order_id: orderId,
-             items: booking.providerId.serviceName || 'Jeep Booking',
-             currency: env.PAYHERE_CURRENCY || 'LKR',
-             amount: amount,
-             first_name: 'Test',
-             last_name: 'User',
-             email: 'test@example.com',
-             phone: '0771234567',
-             address: 'Test Address',
-             city: 'Colombo',
-             country: 'Sri Lanka',
-             hash: hash
-           };
+      if (!merchantId || !merchantSecret) {
+        console.error('PayHere credentials missing:', { merchantId, merchantSecret });
+        return res.status(500).json({ error: 'PayHere configuration error' });
+      }
 
-           console.log('PayHere payment data prepared:', { orderId, amount, currency: env.PAYHERE_CURRENCY, hash });
-           res.json({ payHereData, method: 'payhere' });
-         } else {
-           return res.status(400).json({ error: 'Invalid payment method' });
-         }
-       } catch (err) {
-         console.error('Error creating payment intent:', err.message, err.stack);
-         res.status(500).json({ error: 'Server error: Failed to create payment' });
-       }
-     });
+      const hashString = `${merchantId}${orderId}${amount}${currency}${merchantSecret}`;
+      const hash = crypto.createHash('md5').update(hashString).digest('hex').toUpperCase();
+      console.log('PayHere hash calculation:', { hashString, hash, merchantId, orderId, amount, currency });
 
-     // Stripe Webhook (Optional)
-     router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-       if (!env.STRIPE_WEBHOOK_SECRET) {
-         console.warn('STRIPE_WEBHOOK_SECRET not set; skipping webhook processing');
-         return res.status(400).json({ error: 'Webhook processing disabled' });
-       }
+      const payHereData = {
+        merchant_id: merchantId,
+        return_url: `${baseUrl}/payment-success`,
+        cancel_url: `${baseUrl}/payment-cancel`,
+        notify_url: notifyUrl,
+        order_id: orderId,
+        items: booking.providerId.serviceName || 'Jeep Booking',
+        currency: currency,
+        amount: amount,
+        first_name: booking.touristId.fullName.split(' ')[0] || 'Test',
+        last_name: booking.touristId.fullName.split(' ')[1] || 'User',
+        email: booking.touristId.email || 'test@example.com',
+        phone: '0771234567',
+        address: 'Test Address',
+        city: 'Colombo',
+        country: 'Sri Lanka',
+        hash: hash
+      };
 
-       const sig = req.headers['stripe-signature'];
-       let event;
+      console.log('PayHere payment data prepared:', { orderId, amount, currency, hash });
+      res.json({ payHereData, method: 'payhere' });
+    } else {
+      return res.status(400).json({ error: 'Invalid payment method' });
+    }
+  } catch (err) {
+    console.error('Error creating payment intent:', err.message, err.stack);
+    res.status(500).json({ error: 'Server error: Failed to create payment' });
+  }
+});
 
-       try {
-         event = stripeInstance.webhooks.constructEvent(req.body, sig, env.STRIPE_WEBHOOK_SECRET);
-       } catch (err) {
-         console.error('Stripe webhook signature verification failed:', err.message);
-         return res.status(400).send(`Webhook Error: ${err.message}`);
-       }
+router.post('/payhere-notification', express.json(), async (req, res) => {
+  const { merchant_id, order_id, status_code, md5sig, amount, currency } = req.body;
 
-       if (event.type === 'payment_intent.succeeded') {
-         const paymentIntent = event.data.object;
-         const bookingId = paymentIntent.metadata.bookingId;
-         await Booking.findByIdAndUpdate(bookingId, { status: 'confirmed' });
-         console.log('Stripe payment succeeded for booking:', bookingId);
-       }
+  const merchantSecret = env.PAYHERE_MERCHANT_SECRET;
+  const hashString = `${merchant_id}${order_id}${amount}${currency}${status_code}${merchantSecret}`;
+  const generatedSig = crypto.createHash('md5').update(hashString).digest('hex').toUpperCase();
 
-       res.json({ received: true });
-     });
+  console.log('PayHere notification received:', { merchant_id, order_id, status_code, md5sig, generatedSig, hashString });
 
-     // PayHere Notification Handler
-     router.post('/payhere-notification', express.json(), async (req, res) => {
-       const { merchant_id, order_id, status_code, md5sig, amount, currency } = req.body;
+  if (generatedSig !== md5sig) {
+    console.error('PayHere signature verification failed:', { order_id, md5sig, generatedSig });
+    return res.status(400).json({ error: 'Invalid signature' });
+  }
 
-       const generatedSig = crypto.createHash('md5')
-         .update(merchant_id + order_id + amount + currency + status_code + env.PAYHERE_MERCHANT_SECRET)
-         .digest('hex')
-         .toUpperCase();
+  if (status_code === '2') {
+    try {
+      await Booking.findByIdAndUpdate(order_id, { status: 'confirmed' });
+      console.log('PayHere payment succeeded for booking:', order_id);
+    } catch (err) {
+      console.error('Error updating booking status:', err.message);
+    }
+  }
 
-       if (generatedSig !== md5sig) {
-         console.error('PayHere signature verification failed:', { order_id, md5sig, generatedSig });
-         return res.status(400).json({ error: 'Invalid signature' });
-       }
+  res.status(200).send('OK');
+});
 
-       if (status_code === '2') {
-         await Booking.findByIdAndUpdate(order_id, { status: 'confirmed' });
-         console.log('PayHere payment succeeded for booking:', order_id);
-       }
+router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
 
-       res.status(200).send('OK');
-     });
+  try {
+    event = stripeInstance.webhooks.constructEvent(req.body, sig, env.STRIPE_WEBHOOK_SECRET || '');
+  } catch (err) {
+    console.error('Stripe webhook signature verification failed:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
 
-     export default router;
+  if (event.type === 'payment_intent.succeeded') {
+    const paymentIntent = event.data.object;
+    const bookingId = paymentIntent.metadata.bookingId;
+    await Booking.findByIdAndUpdate(bookingId, { status: 'confirmed' });
+    console.log('Stripe payment succeeded for booking:', bookingId);
+  }
+
+  res.json({ received: true });
+});
+
+export default router;
