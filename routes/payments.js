@@ -8,7 +8,8 @@ import env from '../config/env.js';
 
 const router = express.Router();
 
-const stripeInstance = stripe(env.STRIPE_SECRET_KEY);
+// It's a good practice to handle a missing secret key gracefully
+const stripeInstance = stripe(env.STRIPE_SECRET_KEY || '');
 
 router.post('/create-intent', authenticateToken, async (req, res) => {
   try {
@@ -27,8 +28,12 @@ router.post('/create-intent', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Invalid or unauthorized booking' });
     }
 
-    const baseUrl = process.env.NODE_ENV === 'production' ? 'https://jeep-booking-frontend.vercel.app' : 'http://localhost:3000';
-    const notifyUrl = process.env.NODE_ENV === 'production' ? 'https://jeep-booking-backend-production.up.railway.app/api/payments/payhere-notification' : 'http://localhost:5000/api/payments/payhere-notification';
+    // Dynamic base URL from request headers
+    const baseUrl = req.headers.origin || 'http://localhost:3000';
+
+    // Dynamic notify URL for PayHere
+    // Vercel deployment URL will be the domain + '/api'
+    const notifyUrl = `${req.protocol}://${req.get('host')}/api/payments/payhere-notification`;
 
     if (paymentMethod === 'stripe') {
       const paymentIntent = await stripeInstance.paymentIntents.create({
