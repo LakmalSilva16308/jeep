@@ -2,33 +2,33 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import cloudinary from 'cloudinary'; // Import the main Cloudinary library
+import dotenv from 'dotenv';
 import Tourist from '../models/Tourist.js';
 import Provider from '../models/Provider.js';
 import Admin from '../models/Admin.js';
 
+dotenv.config();
+
 const router = express.Router();
 
-// Multer configuration for file uploads
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  }
+// Configure Cloudinary with your .env variables
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
 });
+
+// Use multer's memory storage to handle file streams
+// This prevents saving the file to the local disk, which is essential for Vercel
+const storage = multer.memoryStorage();
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
     const filetypes = /jpeg|jpg|png/;
-    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = filetypes.test(file.mimetype);
-    if (extname && mimetype) {
+    if (mimetype) {
       return cb(null, true);
     }
     cb(new Error('Only JPEG/PNG images are allowed'));
@@ -109,19 +109,37 @@ router.post('/provider/signup', upload.fields([
   const { serviceName, fullName, email, contact, category, location, price, description, password } = req.body;
   try {
     console.log('Provider signup request:', { body: req.body, files: req.files });
+
     if (!serviceName || !fullName || !email || !contact || !category || !location || !price || !description || !password) {
       return res.status(400).json({ error: `Missing required fields: ${JSON.stringify(req.body)}` });
     }
-    if (!req.files || !req.files.profilePicture || !req.files.photos) {
+    if (!req.files || !req.files.profilePicture || req.files.photos.length === 0) {
       return res.status(400).json({ error: 'Profile picture and at least one photo are required' });
     }
 
     const existingProvider = await Provider.findOne({ email });
     if (existingProvider) return res.status(400).json({ error: 'Email already exists' });
 
+    // Handle image uploads to Cloudinary
+    let profilePictureUrl = null;
+    let photosUrls = [];
+
+    // Upload profile picture
+    const profilePictureFile = req.files.profilePicture[0];
+    const profileResult = await cloudinary.uploader.upload(`data:${profilePictureFile.mimetype};base64,${profilePictureFile.buffer.toString('base64')}`, {
+      folder: 'provider_profiles',
+    });
+    profilePictureUrl = profileResult.secure_url;
+
+    // Upload additional photos
+    for (const file of req.files.photos) {
+      const photoResult = await cloudinary.uploader.upload(`data:${file.mimetype};base64,${file.buffer.toString('base64')}`, {
+        folder: 'provider_photos',
+      });
+      photosUrls.push(photoResult.secure_url);
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
-    const profilePicture = req.files.profilePicture[0].path.replace(/\\/g, '/').split('uploads/').pop();
-    const photos = req.files.photos.map(file => file.path.replace(/\\/g, '/').split('uploads/').pop());
 
     const provider = await Provider.create({
       serviceName,
@@ -134,8 +152,8 @@ router.post('/provider/signup', upload.fields([
       description,
       password: hashedPassword,
       approved: false,
-      profilePicture: `/uploads/${profilePicture}`,
-      photos: photos.map(photo => `/uploads/${photo}`)
+      profilePicture: profilePictureUrl, // Save the permanent URL
+      photos: photosUrls // Save the array of permanent URLs
     });
 
     const token = jwt.sign({ id: provider._id, role: 'provider' }, process.env.JWT_SECRET, { expiresIn: '1h' });
