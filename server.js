@@ -38,8 +38,11 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.raw({ type: 'application/json', limit: '10mb' }));
 app.use('/Uploads', express.static(path.join(process.cwd(), 'Uploads')));
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI)
+// MongoDB Connection with recommended options
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
   .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('MongoDB connection error:', err.message));
 
@@ -82,3 +85,5 @@ app.post('/api/contact', async (req, res) => {
 
 // This is the key change for Vercel
 export default app;
+
+    
