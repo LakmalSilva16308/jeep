@@ -20,7 +20,7 @@ const app = express();
 
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://jeep-booking-site.vercel.app' // Add your Vercel frontend URL here
+  'https://jeep-booking-frontend.vercel.app' // Add your new frontend domain here
 ];
 
 app.use(cors({
