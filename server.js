@@ -38,9 +38,6 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With', 'Accept']
 }));
 
-// Handle CORS preflight requests
-app.options('*', cors());
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.raw({ type: 'application/json', limit: '10mb' }));
@@ -90,5 +87,9 @@ app.post('/api/contact', async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+// Handle favicon requests to prevent 500 errors
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+app.get('/favicon.png', (req, res) => res.status(204).end());
 
 export default app;
