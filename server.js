@@ -23,9 +23,10 @@ const allowedOrigins = [
   'https://jeep-booking-frontend.vercel.app'
 ];
 
+// CORS middleware with explicit configuration
 app.use(cors({
   origin: (origin, callback) => {
-    console.log('CORS Origin:', origin); // Log for debugging
+    console.log('CORS Origin:', origin);
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -38,8 +39,14 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With', 'Accept']
 }));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Error handling middleware to catch and log errors
+app.use((err, req, res, next) => {
+  console.error('Server error:', err.message, err.stack);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.raw({ type: 'application/json', limit: '10mb' }));
 app.use('/Uploads', express.static(path.join(process.cwd(), 'Uploads')));
 

@@ -7,7 +7,7 @@ const __dirname = path.dirname(__filename);
 
 // Load .env file in development or if .env exists
 const envPath = path.resolve(__dirname, '../.env');
-const result = dotenv.config({ path: envPath, quiet: true }); // Suppress dotenv logs
+const result = dotenv.config({ path: envPath, quiet: true });
 if (result.error && result.error.code !== 'ENOENT') {
   console.error('Error loading .env file:', result.error);
 } else if (result.error) {

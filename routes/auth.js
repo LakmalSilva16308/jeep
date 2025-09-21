@@ -23,7 +23,7 @@ cloudinary.config({
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: { fileSize: 2 * 1024 * 1024 }, // Reduced to 2MB per file
   fileFilter: (req, file, cb) => {
     const filetypes = /jpeg|jpg|png/;
     const mimetype = filetypes.test(file.mimetype);
@@ -56,21 +56,24 @@ router.post('/login', async (req, res) => {
     }
 
     if (!user) {
+      console.error(`No ${role} found with email/username: ${email}`);
       return res.status(400).json({ error: `No ${role} found with this ${role === 'admin' ? 'username' : 'email'}` });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
+      console.error('Invalid credentials for:', email);
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
     if (role === 'provider' && !user.approved) {
+      console.error('Provider not approved:', email);
       return res.status(403).json({ error: 'Provider not approved yet' });
     }
 
     const token = jwt.sign({ id: user._id, role }, process.env.JWT_SECRET, { expiresIn: '1h' });
     console.log('Generated token for user:', { id: user._id, role });
-    return res.json({ token, role });
+    return res.json({ token, role, message: 'Login successful' });
   } catch (err) {
     console.error('Login error:', err.message, err.stack);
     return res.status(500).json({ error: 'Server error' });
@@ -88,7 +91,10 @@ router.post('/tourist/signup', async (req, res) => {
     }
 
     const existingTourist = await Tourist.findOne({ email });
-    if (existingTourist) return res.status(400).json({ error: 'Email already exists' });
+    if (existingTourist) {
+      console.error('Email already exists:', email);
+      return res.status(400).json({ error: 'Email already exists' });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const tourist = await Tourist.create({ fullName, email, password: hashedPassword, country });
@@ -132,7 +138,7 @@ router.post('/provider/signup', upload.fields([
     const profilePictureFile = req.files.profilePicture[0];
     const profileResult = await cloudinary.v2.uploader.upload(
       `data:${profilePictureFile.mimetype};base64,${profilePictureFile.buffer.toString('base64')}`,
-      { folder: 'provider_profiles' }
+      { folder: 'provider_profiles', resource_type: 'image' }
     );
     const profilePictureUrl = profileResult.secure_url;
 
@@ -141,7 +147,7 @@ router.post('/provider/signup', upload.fields([
     for (const file of req.files.photos) {
       const photoResult = await cloudinary.v2.uploader.upload(
         `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
-        { folder: 'provider_photos' }
+        { folder: 'provider_photos', resource_type: 'image' }
       );
       photosUrls.push(photoResult.secure_url);
     }
