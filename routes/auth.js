@@ -2,7 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
-import cloudinary from 'cloudinary'; // Import the main Cloudinary library
+import cloudinary from 'cloudinary';
 import dotenv from 'dotenv';
 import Tourist from '../models/Tourist.js';
 import Provider from '../models/Provider.js';
@@ -12,15 +12,14 @@ dotenv.config();
 
 const router = express.Router();
 
-// Configure Cloudinary with your .env variables
+// Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Use multer's memory storage to handle file streams
-// This prevents saving the file to the local disk, which is essential for Vercel
+// Multer setup with memory storage for Cloudinary
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
@@ -35,6 +34,7 @@ const upload = multer({
   }
 });
 
+// Login route
 router.post('/login', async (req, res) => {
   const { email, password, role } = req.body;
 
@@ -69,7 +69,7 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign({ id: user._id, role }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    console.log('Generated token for user:', { id: user._id, role, token });
+    console.log('Generated token for user:', { id: user._id, role });
     return res.json({ token, role });
   } catch (err) {
     console.error('Login error:', err.message, err.stack);
@@ -79,7 +79,7 @@ router.post('/login', async (req, res) => {
 
 // Tourist signup
 router.post('/tourist/signup', async (req, res) => {
-  let { fullName, email, password, country } = req.body;
+  const { fullName, email, password, country } = req.body;
 
   try {
     console.log('Tourist signup attempt:', { fullName, email, country });
@@ -93,8 +93,8 @@ router.post('/tourist/signup', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const tourist = await Tourist.create({ fullName, email, password: hashedPassword, country });
     const token = jwt.sign({ id: tourist._id, role: 'tourist' }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    console.log('Tourist signup token:', { id: tourist._id, token });
-    return res.json({ token, role: 'tourist' });
+    console.log('Tourist signed up:', { id: tourist._id });
+    return res.json({ token, role: 'tourist', message: 'Tourist signed up successfully' });
   } catch (err) {
     console.error('Tourist signup error:', err.message, err.stack);
     return res.status(500).json({ error: 'Server error' });
@@ -107,40 +107,49 @@ router.post('/provider/signup', upload.fields([
   { name: 'photos', maxCount: 5 }
 ]), async (req, res) => {
   const { serviceName, fullName, email, contact, category, location, price, description, password } = req.body;
-  try {
-    console.log('Provider signup request:', { body: req.body, files: req.files });
 
+  try {
+    console.log('Provider signup attempt:', { serviceName, fullName, email, category });
+
+    // Validate required fields
     if (!serviceName || !fullName || !email || !contact || !category || !location || !price || !description || !password) {
-      return res.status(400).json({ error: `Missing required fields: ${JSON.stringify(req.body)}` });
+      console.error('Missing required fields:', req.body);
+      return res.status(400).json({ error: 'All fields are required' });
     }
-    if (!req.files || !req.files.profilePicture || req.files.photos.length === 0) {
+    if (!req.files || !req.files.profilePicture || !req.files.photos || req.files.photos.length === 0) {
+      console.error('Missing images:', req.files);
       return res.status(400).json({ error: 'Profile picture and at least one photo are required' });
     }
 
+    // Check for existing provider
     const existingProvider = await Provider.findOne({ email });
-    if (existingProvider) return res.status(400).json({ error: 'Email already exists' });
+    if (existingProvider) {
+      console.error('Email already exists:', email);
+      return res.status(400).json({ error: 'Email already exists' });
+    }
 
-    // Handle image uploads to Cloudinary
-    let profilePictureUrl = null;
-    let photosUrls = [];
-
-    // Upload profile picture
+    // Upload profile picture to Cloudinary
     const profilePictureFile = req.files.profilePicture[0];
-    const profileResult = await cloudinary.uploader.upload(`data:${profilePictureFile.mimetype};base64,${profilePictureFile.buffer.toString('base64')}`, {
-      folder: 'provider_profiles',
-    });
-    profilePictureUrl = profileResult.secure_url;
+    const profileResult = await cloudinary.v2.uploader.upload(
+      `data:${profilePictureFile.mimetype};base64,${profilePictureFile.buffer.toString('base64')}`,
+      { folder: 'provider_profiles' }
+    );
+    const profilePictureUrl = profileResult.secure_url;
 
-    // Upload additional photos
+    // Upload additional photos to Cloudinary
+    const photosUrls = [];
     for (const file of req.files.photos) {
-      const photoResult = await cloudinary.uploader.upload(`data:${file.mimetype};base64,${file.buffer.toString('base64')}`, {
-        folder: 'provider_photos',
-      });
+      const photoResult = await cloudinary.v2.uploader.upload(
+        `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
+        { folder: 'provider_photos' }
+      );
       photosUrls.push(photoResult.secure_url);
     }
 
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Create provider
     const provider = await Provider.create({
       serviceName,
       fullName,
@@ -152,15 +161,18 @@ router.post('/provider/signup', upload.fields([
       description,
       password: hashedPassword,
       approved: false,
-      profilePicture: profilePictureUrl, // Save the permanent URL
-      photos: photosUrls // Save the array of permanent URLs
+      profilePicture: profilePictureUrl,
+      photos: photosUrls
     });
 
     const token = jwt.sign({ id: provider._id, role: 'provider' }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    console.log('Provider signup token:', { id: provider._id, token });
-    return res.json({ token, role: 'provider' });
+    console.log('Provider signed up, pending approval:', { id: provider._id });
+    return res.json({ token, role: 'provider', message: 'Provider signed up successfully, pending approval' });
   } catch (err) {
     console.error('Provider signup error:', err.message, err.stack);
+    if (err.message.includes('Only JPEG/PNG images')) {
+      return res.status(400).json({ error: err.message });
+    }
     return res.status(500).json({ error: `Server error: ${err.message}` });
   }
 });

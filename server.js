@@ -20,19 +20,27 @@ const app = express();
 
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://jeep-booking-frontend.vercel.app' // Add your new frontend domain here
+  'https://jeep-booking-frontend.vercel.app'
 ];
 
 app.use(cors({
   origin: (origin, callback) => {
+    console.log('CORS Origin:', origin); // Log for debugging
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.error('CORS blocked for origin:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With', 'Accept']
 }));
+
+// Handle CORS preflight requests
+app.options('*', cors());
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.raw({ type: 'application/json', limit: '10mb' }));
@@ -83,7 +91,4 @@ app.post('/api/contact', async (req, res) => {
   }
 });
 
-// This is the key change for Vercel
 export default app;
-
-    
