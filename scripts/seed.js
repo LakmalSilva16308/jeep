@@ -1,12 +1,11 @@
 import mongoose from 'mongoose';
-import bcryptjs from 'bcryptjs'; // Changed to bcryptjs
+import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
 import Tourist from '../models/Tourist.js';
 import Provider from '../models/Provider.js';
 import Booking from '../models/Booking.js';
 import Review from '../models/Review.js';
 import Contact from '../models/Contact.js';
-import Admin from '../models/Admin.js'; // Added Admin model
 
 dotenv.config();
 
@@ -24,27 +23,16 @@ const seedDB = async () => {
     await Booking.deleteMany({});
     await Review.deleteMany({});
     await Contact.deleteMany({});
-    await Admin.deleteMany({}); // Clear admins
     console.log(`[${new Date().toISOString()}] Cleared existing data`);
 
-    // Create admin
-    const adminHashedPassword = await bcryptjs.hash('Admin123!', 10);
-    const admin = await Admin.create({
-      username: 'admin@jeepbooking.com', // Matches auth.js admin login
-      password: adminHashedPassword,
-      role: 'admin'
-    });
-    console.log(`[${new Date().toISOString()}] Created admin: ${admin._id}`);
-
     // Create tourist
-    const hashedPassword = await bcryptjs.hash('Tourist123!', 10);
+    const hashedPassword = await bcrypt.hash('Tourist123!', 10);
     const tourist = await Tourist.create({
       _id: '68caa8ef0339acb2e2d125c8', // Match the ID from the token
       fullName: 'Test Tourist',
       email: 'tourist@jeepbooking.com',
       password: hashedPassword,
-      role: 'tourist',
-      country: 'Sri Lanka' // Added to match schema
+      role: 'tourist'
     });
     console.log(`[${new Date().toISOString()}] Created tourist: ${tourist._id}`);
 
