@@ -1,36 +1,50 @@
 import mongoose from 'mongoose';
-import bcrypt from 'bcrypt';
+import bcryptjs from 'bcryptjs';
 import dotenv from 'dotenv';
 import Tourist from '../models/Tourist.js';
 import Provider from '../models/Provider.js';
 import Booking from '../models/Booking.js';
 import Review from '../models/Review.js';
 import Contact from '../models/Contact.js';
+import Admin from '../models/Admin.js';
 
 dotenv.config();
 
 const seedDB = async () => {
   try {
+    console.log(`[${new Date().toISOString()}] Connecting to MongoDB with URI: ${process.env.MONGODB_URI.replace(/:.*@/, ':<hidden>@')}`);
     await mongoose.connect(process.env.MONGODB_URI);
     console.log(`[${new Date().toISOString()}] Connected to MongoDB`);
 
     // Clear existing data
-    await Tourist.deleteMany({});
-    await Provider.deleteMany({});
-    await Booking.deleteMany({});
-    await Review.deleteMany({});
-    await Contact.deleteMany({});
+    await Promise.all([
+      Tourist.deleteMany({}),
+      Provider.deleteMany({}),
+      Booking.deleteMany({}),
+      Review.deleteMany({}),
+      Contact.deleteMany({}),
+      Admin.deleteMany({})
+    ]);
     console.log(`[${new Date().toISOString()}] Cleared existing data`);
 
+    // Create admin
+    const adminHashedPassword = await bcryptjs.hash('Admin123!', 10);
+    const admin = await Admin.create({
+      username: 'admin', // Changed from email to username to match Admin model
+      password: adminHashedPassword,
+      role: 'admin'
+    });
+    console.log(`[${new Date().toISOString()}] Created admin: ${admin._id}`);
+
     // Create tourist
-    const hashedPassword = await bcrypt.hash('Tourist123!', 10);
+    const hashedPassword = await bcryptjs.hash('Tourist123!', 10);
     const tourist = await Tourist.create({
-      _id: '68caa8ef0339acb2e2d125c8', // Match the ID from the token
+      _id: new mongoose.Types.ObjectId('68caa8ef0339acb2e2d125c8'),
       fullName: 'Test Tourist',
       email: 'tourist@jeepbooking.com',
       password: hashedPassword,
       role: 'tourist',
-      country: 'Sri Lanka' // Added required country field
+      country: 'Sri Lanka'
     });
     console.log(`[${new Date().toISOString()}] Created tourist: ${tourist._id}`);
 
@@ -45,7 +59,7 @@ const seedDB = async () => {
       price: 100,
       description: 'A thrilling jeep safari experience',
       password: hashedPassword,
-      profilePicture: 'https://res.cloudinary.com/your_cloud_name/image/upload/provider_profiles/test.jpg',
+      profilePicture: 'https://res.cloudinary.com/<your_cloud_name>/image/upload/provider_profiles/test.jpg',
       photos: [],
       approved: true
     });
@@ -88,8 +102,10 @@ const seedDB = async () => {
     console.log(`[${new Date().toISOString()}] Database seeded successfully`);
   } catch (err) {
     console.error(`[${new Date().toISOString()}] Error seeding database:`, err.message, err.stack);
+    process.exit(1);
   } finally {
-    mongoose.connection.close();
+    await mongoose.connection.close();
+    console.log(`[${new Date().toISOString()}] MongoDB connection closed`);
   }
 };
 
