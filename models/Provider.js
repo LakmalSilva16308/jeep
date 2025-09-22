@@ -1,5 +1,4 @@
 import mongoose from 'mongoose';
-import bcryptjs from 'bcryptjs';
 
 const providerSchema = new mongoose.Schema({
   serviceName: { type: String, required: true },
@@ -22,37 +21,17 @@ const providerSchema = new mongoose.Schema({
   description: { type: String, required: true },
   password: { type: String, required: true },
   approved: { type: Boolean, default: false },
-  profilePicture: { type: String, required: true },
-  photos: [{ type: String }],
+  profilePicture: { type: String },
+  photos: [{ type: String }]
 }, {
   timestamps: true
 });
 
-// Hash password before saving
-providerSchema.pre('save', async function (next) {
-  if (this.isModified('password')) {
-    try {
-      this.password = await bcryptjs.hash(this.password, 10);
-      console.log(`[${new Date().toISOString()}] Hashed password for provider: ${this.email}`);
-    } catch (err) {
-      console.error(`[${new Date().toISOString()}] Error hashing password for provider ${this.email}: ${err.message}`);
-      return next(err);
-    }
-  }
-  next();
-});
-
-// Handle duplicate email
 providerSchema.post('save', function (error, doc, next) {
   if (error.name === 'MongoServerError' && error.code === 11000) {
-    console.error(`[${new Date().toISOString()}] Duplicate email detected: ${doc.email}`);
     next(new Error('Email already exists'));
-  } else if (error) {
-    console.error(`[${new Date().toISOString()}] Error saving provider ${doc.email}: ${error.message}`);
-    next(error);
   } else {
-    console.log(`[${new Date().toISOString()}] Provider saved: ${doc.email}`);
-    next();
+    next(error);
   }
 });
 

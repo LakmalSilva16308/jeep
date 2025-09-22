@@ -1,25 +1,20 @@
 import jwt from 'jsonwebtoken';
-import dotenv from 'dotenv';
 
-dotenv.config();
-
+// Validate JWT_SECRET at startup
 if (!process.env.JWT_SECRET) {
-  console.error(`[${new Date().toISOString()}] JWT_SECRET environment variable is not set`);
+  console.error('JWT_SECRET environment variable is not set');
   process.exit(1);
 }
 
+// Middleware to authenticate JWT token
 export const authenticateToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
   console.log(`[${new Date().toISOString()}] Authenticating request for ${req.method} ${req.path}, Authorization header: ${authHeader || 'none'}`);
   
-  if (!authHeader) {
-    console.error(`[${new Date().toISOString()}] No Authorization header provided for ${req.method} ${req.path}`);
-    return res.status(401).json({ error: 'No Authorization header provided' });
-  }
-
-  if (!authHeader.startsWith('Bearer ')) {
-    console.error(`[${new Date().toISOString()}] Invalid Authorization header format for ${req.method} ${req.path}: ${authHeader}`);
-    return res.status(401).json({ error: 'Invalid Authorization header format. Use Bearer <token>' });
+  // Check for token presence and correct format
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.error(`[${new Date().toISOString()}] No valid Bearer token provided for ${req.method} ${req.path}`);
+    return res.status(401).json({ error: 'No valid Bearer token provided' });
   }
 
   const token = authHeader.split(' ')[1];
@@ -32,6 +27,8 @@ export const authenticateToken = (req, res, next) => {
   
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Validate role
     const validRoles = ['admin', 'tourist', 'provider'];
     if (!decoded.id || !decoded.role || !validRoles.includes(decoded.role)) {
       console.error(`[${new Date().toISOString()}] Invalid token payload for ${req.method} ${req.path}:`, decoded);
@@ -44,6 +41,8 @@ export const authenticateToken = (req, res, next) => {
     });
     
     req.user = decoded;
+    
+    // Add security headers
     res.set({
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'DENY'
@@ -51,7 +50,7 @@ export const authenticateToken = (req, res, next) => {
     
     next();
   } catch (err) {
-    console.error(`[${new Date().toISOString()}] Token verification failed for ${req.method} ${req.path}: ${err.message}`);
+    console.error(`[${new Date().toISOString()}] Token verification failed for ${req.method} ${req.path}:`, err.message);
     if (err.name === 'TokenExpiredError') {
       return res.status(401).json({ error: 'Token expired' });
     }
@@ -62,6 +61,7 @@ export const authenticateToken = (req, res, next) => {
   }
 };
 
+// Middleware to check for admin role
 export const isAdmin = (req, res, next) => {
   if (!req.user) {
     console.error(`[${new Date().toISOString()}] No user object in request for ${req.method} ${req.path}`);
