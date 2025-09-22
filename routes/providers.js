@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import Provider from '../models/Provider.js';
 import { authenticateToken, isAdmin } from '../middleware/auth.js';
 import multer from 'multer';
-import cloudinary from 'cloudinary';
+import { v2 as cloudinary } from 'cloudinary';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -74,12 +74,12 @@ router.post('/admin', authenticateToken, isAdmin, upload.fields([
   try {
     const { serviceName, fullName, email, contact, category, location, price, description, password } = req.body;
     if (!serviceName || !fullName || !email || !contact || !category || !location || !price || !description || !password || !req.files['profilePicture']) {
-      console.error(`[${new Date().toISOString()}] Missing required fields:`, { body: req.body, files: req.files });
+      console.error(`[${new Date().toISOString()}] Missing required fields:`, { body: req.body, files: Object.keys(req.files) });
       return res.status(400).json({ error: 'All fields and profile picture are required' });
     }
 
     const profilePictureFile = req.files['profilePicture'][0];
-    const profileResult = await cloudinary.v2.uploader.upload(
+    const profileResult = await cloudinary.uploader.upload(
       `data:${profilePictureFile.mimetype};base64,${profilePictureFile.buffer.toString('base64')}`,
       { folder: 'provider_profiles', resource_type: 'image' }
     );
@@ -88,7 +88,7 @@ router.post('/admin', authenticateToken, isAdmin, upload.fields([
     const photos = [];
     if (req.files['photos']) {
       for (const file of req.files['photos']) {
-        const photoResult = await cloudinary.v2.uploader.upload(
+        const photoResult = await cloudinary.uploader.upload(
           `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
           { folder: 'provider_photos', resource_type: 'image' }
         );
