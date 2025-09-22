@@ -11,10 +11,7 @@ dotenv.config();
 
 const seedDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true
-    });
+    await mongoose.connect(process.env.MONGODB_URI);
     console.log(`[${new Date().toISOString()}] Connected to MongoDB`);
 
     // Clear existing data
@@ -32,7 +29,8 @@ const seedDB = async () => {
       fullName: 'Test Tourist',
       email: 'tourist@jeepbooking.com',
       password: hashedPassword,
-      role: 'tourist'
+      role: 'tourist',
+      country: 'Sri Lanka' // Added required country field
     });
     console.log(`[${new Date().toISOString()}] Created tourist: ${tourist._id}`);
 
