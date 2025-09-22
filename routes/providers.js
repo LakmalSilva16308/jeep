@@ -32,6 +32,10 @@ const upload = multer({
 
 router.get('/', async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.error(`[${new Date().toISOString()}] MongoDB not connected`);
+      return res.status(500).json({ error: 'Server error: Database not connected' });
+    }
     const { approved, limit } = req.query;
     const query = approved === 'true' ? { approved: true } : {};
     const providers = await Provider.find(query)
@@ -47,6 +51,10 @@ router.get('/', async (req, res) => {
 
 router.get('/admin', authenticateToken, isAdmin, async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.error(`[${new Date().toISOString()}] MongoDB not connected`);
+      return res.status(500).json({ error: 'Server error: Database not connected' });
+    }
     const providers = await Provider.find().lean();
     console.log(`[${new Date().toISOString()}] Fetched ${providers.length} providers for admin`);
     res.json(providers);
@@ -58,6 +66,10 @@ router.get('/admin', authenticateToken, isAdmin, async (req, res) => {
 
 router.get('/admin/pending', authenticateToken, isAdmin, async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.error(`[${new Date().toISOString()}] MongoDB not connected`);
+      return res.status(500).json({ error: 'Server error: Database not connected' });
+    }
     const providers = await Provider.find({ approved: false }).lean();
     console.log(`[${new Date().toISOString()}] Fetched ${providers.length} pending providers for admin`);
     res.json(providers);
@@ -72,6 +84,10 @@ router.post('/admin', authenticateToken, isAdmin, upload.fields([
   { name: 'photos', maxCount: 5 }
 ]), async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.error(`[${new Date().toISOString()}] MongoDB not connected`);
+      return res.status(500).json({ error: 'Server error: Database not connected' });
+    }
     const { serviceName, fullName, email, contact, category, location, price, description, password } = req.body;
     if (!serviceName || !fullName || !email || !contact || !category || !location || !price || !description || !password || !req.files['profilePicture']) {
       console.error(`[${new Date().toISOString()}] Missing required fields:`, { body: req.body, files: Object.keys(req.files) });
@@ -126,6 +142,10 @@ router.post('/admin', authenticateToken, isAdmin, upload.fields([
 
 router.put('/admin/:id/approve', authenticateToken, isAdmin, async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.error(`[${new Date().toISOString()}] MongoDB not connected`);
+      return res.status(500).json({ error: 'Server error: Database not connected' });
+    }
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       console.error(`[${new Date().toISOString()}] Invalid provider ID: ${req.params.id}`);
       return res.status(400).json({ error: 'Invalid Provider ID' });
@@ -149,6 +169,10 @@ router.put('/admin/:id/approve', authenticateToken, isAdmin, async (req, res) =>
 
 router.delete('/admin/:id', authenticateToken, isAdmin, async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.error(`[${new Date().toISOString()}] MongoDB not connected`);
+      return res.status(500).json({ error: 'Server error: Database not connected' });
+    }
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       console.error(`[${new Date().toISOString()}] Invalid provider ID: ${req.params.id}`);
       return res.status(400).json({ error: 'Invalid Provider ID' });
@@ -168,6 +192,10 @@ router.delete('/admin/:id', authenticateToken, isAdmin, async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.error(`[${new Date().toISOString()}] MongoDB not connected`);
+      return res.status(500).json({ error: 'Server error: Database not connected' });
+    }
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       console.error(`[${new Date().toISOString()}] Invalid provider ID: ${req.params.id}`);
       return res.status(400).json({ error: 'Invalid Provider ID' });

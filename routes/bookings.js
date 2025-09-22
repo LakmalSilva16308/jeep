@@ -10,6 +10,10 @@ const router = express.Router();
 
 router.post('/', authenticateToken, async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.error(`[${new Date().toISOString()}] MongoDB not connected`);
+      return res.status(500).json({ error: 'Server error: Database not connected' });
+    }
     console.log(`[${new Date().toISOString()}] Creating booking for user:`, { userId: req.user.id, role: req.user.role, payload: req.body });
     if (req.user.role !== 'tourist') {
       console.error(`[${new Date().toISOString()}] Access denied: Not a tourist`, { userId: req.user.id });
@@ -36,14 +40,14 @@ router.post('/', authenticateToken, async (req, res) => {
       phone: contact.phone
     });
     await contactDoc.save();
-    const totalPrice = provider.price * 300 * (parseInt(adults) + 0.5 * parseInt(children || 0));
+    const totalPrice = provider.price * (parseInt(adults) || 1) + (provider.price * 0.5 * (parseInt(children) || 0)); // Simplified pricing
     const booking = await Booking.create({
       touristId: req.user.id,
       providerId,
       date,
       time,
-      adults: parseInt(adults),
-      children: parseInt(children || 0),
+      adults: parseInt(adults) || 1,
+      children: parseInt(children) || 0,
       specialNotes,
       totalPrice,
       status: 'pending',
@@ -62,6 +66,10 @@ router.post('/', authenticateToken, async (req, res) => {
 
 router.post('/product', authenticateToken, async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.error(`[${new Date().toISOString()}] MongoDB not connected`);
+      return res.status(500).json({ error: 'Server error: Database not connected' });
+    }
     console.log(`[${new Date().toISOString()}] Creating product booking for user:`, { userId: req.user.id, role: req.user.role, payload: req.body });
     if (req.user.role !== 'tourist') {
       console.error(`[${new Date().toISOString()}] Access denied: Not a tourist`, { userId: req.user.id });
@@ -84,9 +92,9 @@ router.post('/product', authenticateToken, async (req, res) => {
       productType,
       date,
       time,
-      adults: parseInt(adults),
-      children: parseInt(children || 0),
-      totalPrice: Number(totalPrice) * 300,
+      adults: parseInt(adults) || 1,
+      children: parseInt(children) || 0,
+      totalPrice: Number(totalPrice),
       specialNotes,
       status: 'pending',
       contactId: contactDoc._id
@@ -104,6 +112,10 @@ router.post('/product', authenticateToken, async (req, res) => {
 
 router.get('/my-bookings', authenticateToken, async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.error(`[${new Date().toISOString()}] MongoDB not connected`);
+      return res.status(500).json({ error: 'Server error: Database not connected' });
+    }
     console.log(`[${new Date().toISOString()}] Fetching bookings for tourist:`, { userId: req.user.id, role: req.user.role });
     if (req.user.role !== 'tourist') {
       console.error(`[${new Date().toISOString()}] Access denied: Not a tourist`, { userId: req.user.id });
@@ -133,6 +145,10 @@ router.get('/my-bookings', authenticateToken, async (req, res) => {
 
 router.get('/provider-bookings', authenticateToken, async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.error(`[${new Date().toISOString()}] MongoDB not connected`);
+      return res.status(500).json({ error: 'Server error: Database not connected' });
+    }
     console.log(`[${new Date().toISOString()}] Fetching bookings for provider:`, { userId: req.user.id, role: req.user.role });
     if (req.user.role !== 'provider') {
       console.error(`[${new Date().toISOString()}] Access denied: Not a provider`, { userId: req.user.id });
@@ -158,6 +174,10 @@ router.get('/provider-bookings', authenticateToken, async (req, res) => {
 
 router.get('/admin', authenticateToken, isAdmin, async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.error(`[${new Date().toISOString()}] MongoDB not connected`);
+      return res.status(500).json({ error: 'Server error: Database not connected' });
+    }
     console.log(`[${new Date().toISOString()}] Fetching all bookings for admin:`, { userId: req.user.id });
     const bookings = await Booking.find()
       .populate({
@@ -183,6 +203,10 @@ router.get('/admin', authenticateToken, isAdmin, async (req, res) => {
 
 router.put('/admin/:id/approve', authenticateToken, isAdmin, async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.error(`[${new Date().toISOString()}] MongoDB not connected`);
+      return res.status(500).json({ error: 'Server error: Database not connected' });
+    }
     console.log(`[${new Date().toISOString()}] Approving booking:`, { bookingId: req.params.id, adminId: req.user.id });
     const booking = await Booking.findById(req.params.id);
     if (!booking) {
@@ -204,6 +228,10 @@ router.put('/admin/:id/approve', authenticateToken, isAdmin, async (req, res) =>
 
 router.delete('/admin/:id', authenticateToken, isAdmin, async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.error(`[${new Date().toISOString()}] MongoDB not connected`);
+      return res.status(500).json({ error: 'Server error: Database not connected' });
+    }
     console.log(`[${new Date().toISOString()}] Deleting booking:`, { bookingId: req.params.id, adminId: req.user.id });
     const booking = await Booking.findByIdAndDelete(req.params.id);
     if (!booking) {
@@ -220,6 +248,10 @@ router.delete('/admin/:id', authenticateToken, isAdmin, async (req, res) => {
 
 router.post('/admin', authenticateToken, isAdmin, async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.error(`[${new Date().toISOString()}] MongoDB not connected`);
+      return res.status(500).json({ error: 'Server error: Database not connected' });
+    }
     console.log(`[${new Date().toISOString()}] Admin creating booking:`, { adminId: req.user.id, payload: req.body });
     const { providerId, touristId, productType, date, time, adults, children, totalPrice, status, specialNotes, contact } = req.body;
     if (!touristId || !date || !time || !adults || (!providerId && !productType)) {
@@ -249,8 +281,8 @@ router.post('/admin', authenticateToken, isAdmin, async (req, res) => {
       touristId,
       date,
       time,
-      adults: parseInt(adults),
-      children: parseInt(children || 0),
+      adults: parseInt(adults) || 1,
+      children: parseInt(children) || 0,
       status: status || 'pending',
       specialNotes,
       contactId
@@ -262,10 +294,10 @@ router.post('/admin', authenticateToken, isAdmin, async (req, res) => {
         return res.status(404).json({ error: 'Provider not found' });
       }
       bookingData.providerId = providerId;
-      bookingData.totalPrice = totalPrice ? Number(totalPrice) * 300 : provider.price * 300 * (parseInt(adults) + 0.5 * parseInt(children || 0));
+      bookingData.totalPrice = totalPrice ? Number(totalPrice) : provider.price * (parseInt(adults) || 1) + (provider.price * 0.5 * (parseInt(children) || 0));
     } else if (productType) {
       bookingData.productType = productType;
-      bookingData.totalPrice = Number(totalPrice) * 300;
+      bookingData.totalPrice = Number(totalPrice);
     }
     const booking = await Booking.create(bookingData);
     const populatedBooking = await Booking.findById(booking._id)
