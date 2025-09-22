@@ -39,43 +39,52 @@ router.post('/login', async (req, res) => {
   const { email, password, role } = req.body;
 
   try {
-    console.log('Login attempt:', { email, role });
+    console.log(`[${new Date().toISOString()}] Login attempt:`, { email, role });
     if (!email || !password || !role) {
+      console.error(`[${new Date().toISOString()}] Missing required fields:`, { email, role });
       return res.status(400).json({ error: 'Email, password, and role are required' });
+    }
+
+    if (!['tourist', 'provider', 'admin'].includes(role)) {
+      console.error(`[${new Date().toISOString()}] Invalid role: ${role}`);
+      return res.status(400).json({ error: 'Invalid role' });
     }
 
     let user;
     if (role === 'tourist') {
-      user = await Tourist.findOne({ email });
+      user = await Tourist.findOne({ email }).lean();
     } else if (role === 'provider') {
-      user = await Provider.findOne({ email });
+      user = await Provider.findOne({ email }).lean();
     } else if (role === 'admin') {
-      user = await Admin.findOne({ username: email });
-    } else {
-      return res.status(400).json({ error: 'Invalid role' });
+      user = await Admin.findOne({ email }).lean(); // Changed from username to email
     }
 
     if (!user) {
-      console.error(`No ${role} found with email/username: ${email}`);
-      return res.status(400).json({ error: `No ${role} found with this ${role === 'admin' ? 'username' : 'email'}` });
+      console.error(`[${new Date().toISOString()}] No ${role} found with email: ${email}`);
+      return res.status(400).json({ error: `No ${role} found with this email` });
+    }
+
+    if (!user.password) {
+      console.error(`[${new Date().toISOString()}] No password set for user:`, { email, role, userId: user._id });
+      return res.status(500).json({ error: 'Server error: User password not configured' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      console.error('Invalid credentials for:', email);
+      console.error(`[${new Date().toISOString()}] Password mismatch for:`, { email, role, userId: user._id });
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
     if (role === 'provider' && !user.approved) {
-      console.error('Provider not approved:', email);
+      console.error(`[${new Date().toISOString()}] Provider not approved:`, { email, userId: user._id });
       return res.status(403).json({ error: 'Provider not approved yet' });
     }
 
     const token = jwt.sign({ id: user._id, role }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    console.log('Generated token for user:', { id: user._id, role });
+    console.log(`[${new Date().toISOString()}] Generated token for user:`, { id: user._id, role });
     return res.json({ token, role, message: 'Login successful' });
   } catch (err) {
-    console.error('Login error:', err.message, err.stack);
+    console.error(`[${new Date().toISOString()}] Login error:`, err.message, err.stack);
     return res.status(500).json({ error: 'Server error' });
   }
 });
@@ -85,24 +94,25 @@ router.post('/tourist/signup', async (req, res) => {
   const { fullName, email, password, country } = req.body;
 
   try {
-    console.log('Tourist signup attempt:', { fullName, email, country });
+    console.log(`[${new Date().toISOString()}] Tourist signup attempt:`, { fullName, email, country });
     if (!fullName || !email || !password || !country) {
+      console.error(`[${new Date().toISOString()}] Missing required fields:`, { fullName, email, country });
       return res.status(400).json({ error: 'All fields are required' });
     }
 
     const existingTourist = await Tourist.findOne({ email });
     if (existingTourist) {
-      console.error('Email already exists:', email);
+      console.error(`[${new Date().toISOString()}] Email already exists:`, { email });
       return res.status(400).json({ error: 'Email already exists' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const tourist = await Tourist.create({ fullName, email, password: hashedPassword, country });
     const token = jwt.sign({ id: tourist._id, role: 'tourist' }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    console.log('Tourist signed up:', { id: tourist._id });
+    console.log(`[${new Date().toISOString()}] Tourist signed up:`, { id: tourist._id });
     return res.json({ token, role: 'tourist', message: 'Tourist signed up successfully' });
   } catch (err) {
-    console.error('Tourist signup error:', err.message, err.stack);
+    console.error(`[${new Date().toISOString()}] Tourist signup error:`, err.message, err.stack);
     return res.status(500).json({ error: 'Server error' });
   }
 });
@@ -115,22 +125,22 @@ router.post('/provider/signup', upload.fields([
   const { serviceName, fullName, email, contact, category, location, price, description, password } = req.body;
 
   try {
-    console.log('Provider signup attempt:', { serviceName, fullName, email, category });
+    console.log(`[${new Date().toISOString()}] Provider signup attempt:`, { serviceName, fullName, email, category });
 
     // Validate required fields
     if (!serviceName || !fullName || !email || !contact || !category || !location || !price || !description || !password) {
-      console.error('Missing required fields:', req.body);
+      console.error(`[${new Date().toISOString()}] Missing required fields:`, req.body);
       return res.status(400).json({ error: 'All fields are required' });
     }
     if (!req.files || !req.files.profilePicture || !req.files.photos || req.files.photos.length === 0) {
-      console.error('Missing images:', req.files);
+      console.error(`[${new Date().toISOString()}] Missing images:`, req.files);
       return res.status(400).json({ error: 'Profile picture and at least one photo are required' });
     }
 
     // Check for existing provider
     const existingProvider = await Provider.findOne({ email });
     if (existingProvider) {
-      console.error('Email already exists:', email);
+      console.error(`[${new Date().toISOString()}] Email already exists:`, { email });
       return res.status(400).json({ error: 'Email already exists' });
     }
 
@@ -172,10 +182,10 @@ router.post('/provider/signup', upload.fields([
     });
 
     const token = jwt.sign({ id: provider._id, role: 'provider' }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    console.log('Provider signed up, pending approval:', { id: provider._id });
+    console.log(`[${new Date().toISOString()}] Provider signed up, pending approval:`, { id: provider._id });
     return res.json({ token, role: 'provider', message: 'Provider signed up successfully, pending approval' });
   } catch (err) {
-    console.error('Provider signup error:', err.message, err.stack);
+    console.error(`[${new Date().toISOString()}] Provider signup error:`, err.message, err.stack);
     if (err.message.includes('Only JPEG/PNG images')) {
       return res.status(400).json({ error: err.message });
     }

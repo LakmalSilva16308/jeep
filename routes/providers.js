@@ -34,11 +34,12 @@ router.get('/', async (req, res) => {
   try {
     const { approved, limit } = req.query;
     const query = approved === 'true' ? { approved: true } : {};
+    console.log(`[${new Date().toISOString()}] Fetching providers with query:`, { approved, limit });
     const providers = await Provider.find(query)
       .limit(parseInt(limit) || 0)
       .lean();
     console.log(`[${new Date().toISOString()}] Fetched ${providers.length} providers (approved=${approved}, limit=${limit})`);
-    res.json(providers);
+    res.json(providers || []);
   } catch (err) {
     console.error(`[${new Date().toISOString()}] Error fetching providers:`, err.message, err.stack);
     res.status(500).json({ error: 'Server error: Failed to fetch providers' });
@@ -47,9 +48,10 @@ router.get('/', async (req, res) => {
 
 router.get('/admin', authenticateToken, isAdmin, async (req, res) => {
   try {
+    console.log(`[${new Date().toISOString()}] Fetching all providers for admin`);
     const providers = await Provider.find().lean();
     console.log(`[${new Date().toISOString()}] Fetched ${providers.length} providers for admin`);
-    res.json(providers);
+    res.json(providers || []);
   } catch (err) {
     console.error(`[${new Date().toISOString()}] Error fetching providers for admin:`, err.message, err.stack);
     res.status(500).json({ error: 'Server error: Failed to fetch providers' });
@@ -58,9 +60,10 @@ router.get('/admin', authenticateToken, isAdmin, async (req, res) => {
 
 router.get('/admin/pending', authenticateToken, isAdmin, async (req, res) => {
   try {
+    console.log(`[${new Date().toISOString()}] Fetching pending providers for admin`);
     const providers = await Provider.find({ approved: false }).lean();
     console.log(`[${new Date().toISOString()}] Fetched ${providers.length} pending providers for admin`);
-    res.json(providers);
+    res.json(providers || []);
   } catch (err) {
     console.error(`[${new Date().toISOString()}] Error fetching pending providers:`, err.message, err.stack);
     res.status(500).json({ error: 'Server error: Failed to fetch pending providers' });
@@ -142,7 +145,7 @@ router.put('/admin/:id/approve', authenticateToken, isAdmin, async (req, res) =>
     console.log(`[${new Date().toISOString()}] Provider approved: ${provider._id}`);
     res.json({ message: 'Provider approved', provider });
   } catch (err) {
-    console.error(`[${new Date().toISOString()}] Error approving provider: ${req.params.id}`, err.message, err.stack);
+    console.error(`[${new Date().toISOString()}] Error approving provider ${req.params.id}:`, err.message, err.stack);
     res.status(500).json({ error: 'Server error: Failed to approve provider' });
   }
 });
@@ -161,7 +164,7 @@ router.delete('/admin/:id', authenticateToken, isAdmin, async (req, res) => {
     console.log(`[${new Date().toISOString()}] Provider deleted: ${req.params.id}`);
     res.json({ message: 'Provider deleted' });
   } catch (err) {
-    console.error(`[${new Date().toISOString()}] Error deleting provider: ${req.params.id}`, err.message, err.stack);
+    console.error(`[${new Date().toISOString()}] Error deleting provider ${req.params.id}:`, err.message, err.stack);
     res.status(500).json({ error: 'Server error: Failed to delete provider' });
   }
 });
@@ -180,7 +183,7 @@ router.get('/:id', async (req, res) => {
     console.log(`[${new Date().toISOString()}] Fetched provider: ${provider._id}`);
     res.json(provider);
   } catch (err) {
-    console.error(`[${new Date().toISOString()}] Error fetching provider: ${req.params.id}`, err.message, err.stack);
+    console.error(`[${new Date().toISOString()}] Error fetching provider ${req.params.id}:`, err.message, err.stack);
     res.status(500).json({ error: 'Server error: Failed to fetch provider' });
   }
 });

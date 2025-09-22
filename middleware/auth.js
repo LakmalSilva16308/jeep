@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 
 // Validate JWT_SECRET at startup
 if (!process.env.JWT_SECRET) {
-  console.error('JWT_SECRET environment variable is not set');
+  console.error(`[${new Date().toISOString()}] JWT_SECRET environment variable is not set`);
   process.exit(1);
 }
 
@@ -11,7 +11,6 @@ export const authenticateToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
   console.log(`[${new Date().toISOString()}] Authenticating request for ${req.method} ${req.path}, Authorization header: ${authHeader || 'none'}`);
   
-  // Check for token presence and correct format
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     console.error(`[${new Date().toISOString()}] No valid Bearer token provided for ${req.method} ${req.path}`);
     return res.status(401).json({ error: 'No valid Bearer token provided' });
@@ -28,7 +27,11 @@ export const authenticateToken = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Validate role
+    if (!mongoose.Types.ObjectId.isValid(decoded.id)) {
+      console.error(`[${new Date().toISOString()}] Invalid user ID in token: ${decoded.id}`);
+      return res.status(401).json({ error: 'Invalid user ID in token' });
+    }
+
     const validRoles = ['admin', 'tourist', 'provider'];
     if (!decoded.id || !decoded.role || !validRoles.includes(decoded.role)) {
       console.error(`[${new Date().toISOString()}] Invalid token payload for ${req.method} ${req.path}:`, decoded);
@@ -42,7 +45,6 @@ export const authenticateToken = (req, res, next) => {
     
     req.user = decoded;
     
-    // Add security headers
     res.set({
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'DENY'
