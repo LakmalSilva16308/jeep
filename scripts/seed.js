@@ -30,7 +30,7 @@ const seedDB = async () => {
     // Create admin
     const adminHashedPassword = await bcryptjs.hash('Admin123!', 10);
     const admin = await Admin.create({
-      username: 'admin', // Changed from email to username to match Admin model
+      username: 'admin',
       password: adminHashedPassword,
       role: 'admin'
     });
@@ -39,11 +39,10 @@ const seedDB = async () => {
     // Create tourist
     const hashedPassword = await bcryptjs.hash('Tourist123!', 10);
     const tourist = await Tourist.create({
-      _id: new mongoose.Types.ObjectId('68caa8ef0339acb2e2d125c8'),
+      _id: new mongoose.Types.ObjectId('68d0eba2865715d4cfdbb002'), // Match token ID
       fullName: 'Test Tourist',
       email: 'tourist@jeepbooking.com',
       password: hashedPassword,
-      role: 'tourist',
       country: 'Sri Lanka'
     });
     console.log(`[${new Date().toISOString()}] Created tourist: ${tourist._id}`);
@@ -59,7 +58,9 @@ const seedDB = async () => {
       price: 100,
       description: 'A thrilling jeep safari experience',
       password: hashedPassword,
-      profilePicture: 'https://res.cloudinary.com/<your_cloud_name>/image/upload/provider_profiles/test.jpg',
+      profilePicture: process.env.CLOUDINARY_CLOUD_NAME
+        ? `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/provider_profiles/placeholder.jpg`
+        : null,
       photos: [],
       approved: true
     });
@@ -90,7 +91,7 @@ const seedDB = async () => {
 
     // Create review
     const review = await Review.create({
-      targetId: provider._id,
+      targetId: provider._id.toString(), // Use string for targetId per Review schema
       reviewerId: tourist._id,
       rating: 5,
       comment: 'Amazing experience!',

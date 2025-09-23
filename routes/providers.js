@@ -37,9 +37,15 @@ router.get('/', async (req, res) => {
     console.log(`[${new Date().toISOString()}] Fetching providers with query:`, { approved, limit });
     const providers = await Provider.find(query)
       .limit(parseInt(limit) || 0)
+      .select('serviceName fullName email contact category location price description profilePicture photos approved')
       .lean();
+    // Ensure profilePicture has a fallback
+    const providersWithFallback = providers.map(provider => ({
+      ...provider,
+      profilePicture: provider.profilePicture || '/images/placeholder.jpg'
+    }));
     console.log(`[${new Date().toISOString()}] Fetched ${providers.length} providers (approved=${approved}, limit=${limit})`);
-    res.json(providers || []);
+    res.json(providersWithFallback || []);
   } catch (err) {
     console.error(`[${new Date().toISOString()}] Error fetching providers:`, err.message, err.stack);
     res.status(500).json({ error: 'Server error: Failed to fetch providers' });
@@ -49,9 +55,15 @@ router.get('/', async (req, res) => {
 router.get('/admin', authenticateToken, isAdmin, async (req, res) => {
   try {
     console.log(`[${new Date().toISOString()}] Fetching all providers for admin`);
-    const providers = await Provider.find().lean();
+    const providers = await Provider.find()
+      .select('serviceName fullName email contact category location price description profilePicture photos approved')
+      .lean();
+    const providersWithFallback = providers.map(provider => ({
+      ...provider,
+      profilePicture: provider.profilePicture || '/images/placeholder.jpg'
+    }));
     console.log(`[${new Date().toISOString()}] Fetched ${providers.length} providers for admin`);
-    res.json(providers || []);
+    res.json(providersWithFallback || []);
   } catch (err) {
     console.error(`[${new Date().toISOString()}] Error fetching providers for admin:`, err.message, err.stack);
     res.status(500).json({ error: 'Server error: Failed to fetch providers' });
@@ -61,9 +73,15 @@ router.get('/admin', authenticateToken, isAdmin, async (req, res) => {
 router.get('/admin/pending', authenticateToken, isAdmin, async (req, res) => {
   try {
     console.log(`[${new Date().toISOString()}] Fetching pending providers for admin`);
-    const providers = await Provider.find({ approved: false }).lean();
+    const providers = await Provider.find({ approved: false })
+      .select('serviceName fullName email contact category location price description profilePicture photos approved')
+      .lean();
+    const providersWithFallback = providers.map(provider => ({
+      ...provider,
+      profilePicture: provider.profilePicture || '/images/placeholder.jpg'
+    }));
     console.log(`[${new Date().toISOString()}] Fetched ${providers.length} pending providers for admin`);
-    res.json(providers || []);
+    res.json(providersWithFallback || []);
   } catch (err) {
     console.error(`[${new Date().toISOString()}] Error fetching pending providers:`, err.message, err.stack);
     res.status(500).json({ error: 'Server error: Failed to fetch pending providers' });
@@ -99,6 +117,7 @@ router.post('/admin', authenticateToken, isAdmin, upload.fields([
       }
     }
 
+    const hashedPassword = await bcryptjs.hash(password, 10);
     const provider = await Provider.create({
       serviceName,
       fullName,
@@ -108,7 +127,7 @@ router.post('/admin', authenticateToken, isAdmin, upload.fields([
       location,
       price: parseFloat(price),
       description,
-      password,
+      password: hashedPassword,
       profilePicture,
       photos,
       approved: true
@@ -175,13 +194,19 @@ router.get('/:id', async (req, res) => {
       console.error(`[${new Date().toISOString()}] Invalid provider ID: ${req.params.id}`);
       return res.status(400).json({ error: 'Invalid Provider ID' });
     }
-    const provider = await Provider.findById(req.params.id).lean();
+    const provider = await Provider.findById(req.params.id)
+      .select('serviceName fullName email contact category location price description profilePicture photos approved')
+      .lean();
     if (!provider) {
       console.error(`[${new Date().toISOString()}] Provider not found: ${req.params.id}`);
       return res.status(404).json({ error: 'Provider not found' });
     }
+    const providerWithFallback = {
+      ...provider,
+      profilePicture: provider.profilePicture || '/images/placeholder.jpg'
+    };
     console.log(`[${new Date().toISOString()}] Fetched provider: ${provider._id}`);
-    res.json(provider);
+    res.json(providerWithFallback);
   } catch (err) {
     console.error(`[${new Date().toISOString()}] Error fetching provider ${req.params.id}:`, err.message, err.stack);
     res.status(500).json({ error: 'Server error: Failed to fetch provider' });
