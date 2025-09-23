@@ -1,4 +1,8 @@
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 // Validate JWT_SECRET at startup
 if (!process.env.JWT_SECRET) {

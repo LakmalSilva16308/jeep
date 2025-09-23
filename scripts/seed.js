@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import bcryptjs from 'bcryptjs';
+import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 import Tourist from '../models/Tourist.js';
 import Provider from '../models/Provider.js';
@@ -7,8 +7,15 @@ import Booking from '../models/Booking.js';
 import Review from '../models/Review.js';
 import Contact from '../models/Contact.js';
 import Admin from '../models/Admin.js';
+import cloudinary from 'cloudinary';
 
 dotenv.config();
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 const seedDB = async () => {
   try {
@@ -28,18 +35,18 @@ const seedDB = async () => {
     console.log(`[${new Date().toISOString()}] Cleared existing data`);
 
     // Create admin
-    const adminHashedPassword = await bcryptjs.hash('Admin123!', 10);
+    const adminHashedPassword = await bcrypt.hash('Admin123!', 10);
     const admin = await Admin.create({
-      username: 'admin',
+      username: 'admin@jeepbooking.com',
       password: adminHashedPassword,
       role: 'admin'
     });
     console.log(`[${new Date().toISOString()}] Created admin: ${admin._id}`);
 
     // Create tourist
-    const hashedPassword = await bcryptjs.hash('Tourist123!', 10);
+    const hashedPassword = await bcrypt.hash('Tourist123!', 10);
     const tourist = await Tourist.create({
-      _id: new mongoose.Types.ObjectId('68d0eba2865715d4cfdbb002'), // Match token ID
+      _id: new mongoose.Types.ObjectId('68d2c8e753f6a3586d9429fa'), // Match token ID
       fullName: 'Test Tourist',
       email: 'tourist@jeepbooking.com',
       password: hashedPassword,
@@ -60,7 +67,7 @@ const seedDB = async () => {
       password: hashedPassword,
       profilePicture: process.env.CLOUDINARY_CLOUD_NAME
         ? `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/provider_profiles/placeholder.jpg`
-        : null,
+        : 'images/placeholder.jpg',
       photos: [],
       approved: true
     });
@@ -91,7 +98,7 @@ const seedDB = async () => {
 
     // Create review
     const review = await Review.create({
-      targetId: provider._id.toString(), // Use string for targetId per Review schema
+      targetId: provider._id.toString(),
       reviewerId: tourist._id,
       rating: 5,
       comment: 'Amazing experience!',

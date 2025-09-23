@@ -1,5 +1,5 @@
 import express from 'express';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcryptjs'; // Changed to bcryptjs for consistency
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import cloudinary from 'cloudinary';
@@ -10,8 +10,6 @@ import Admin from '../models/Admin.js';
 
 dotenv.config();
 
-const router = express.Router();
-
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -19,11 +17,11 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Multer setup with memory storage for Cloudinary
+// Multer setup for provider signup
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
-  limits: { fileSize: 2 * 1024 * 1024 }, // Reduced to 2MB per file
+  limits: { fileSize: 2 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const filetypes = /jpeg|jpg|png/;
     const mimetype = filetypes.test(file.mimetype);
@@ -34,13 +32,16 @@ const upload = multer({
   }
 });
 
+const router = express.Router();
+
 // Login route
 router.post('/login', async (req, res) => {
   const { email, password, role } = req.body;
 
   try {
-    console.log('Login attempt:', { email, role });
+    console.log(`[${new Date().toISOString()}] Login attempt:`, { email, role });
     if (!email || !password || !role) {
+      console.error(`[${new Date().toISOString()}] Missing required fields:`, { email, role });
       return res.status(400).json({ error: 'Email, password, and role are required' });
     }
 
@@ -50,32 +51,33 @@ router.post('/login', async (req, res) => {
     } else if (role === 'provider') {
       user = await Provider.findOne({ email });
     } else if (role === 'admin') {
-      user = await Admin.findOne({ username: email });
+      user = await Admin.findOne({ username: email }); // Treat email as username for admin
     } else {
+      console.error(`[${new Date().toISOString()}] Invalid role: ${role}`);
       return res.status(400).json({ error: 'Invalid role' });
     }
 
     if (!user) {
-      console.error(`No ${role} found with email/username: ${email}`);
+      console.error(`[${new Date().toISOString()}] No ${role} found with ${role === 'admin' ? 'username' : 'email'}: ${email}`);
       return res.status(400).json({ error: `No ${role} found with this ${role === 'admin' ? 'username' : 'email'}` });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      console.error('Invalid credentials for:', email);
+      console.error(`[${new Date().toISOString()}] Invalid credentials for ${role}: ${email}`);
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
     if (role === 'provider' && !user.approved) {
-      console.error('Provider not approved:', email);
+      console.error(`[${new Date().toISOString()}] Provider not approved: ${email}`);
       return res.status(403).json({ error: 'Provider not approved yet' });
     }
 
     const token = jwt.sign({ id: user._id, role }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    console.log('Generated token for user:', { id: user._id, role });
+    console.log(`[${new Date().toISOString()}] Generated token for ${role}:`, { id: user._id });
     return res.json({ token, role, message: 'Login successful' });
   } catch (err) {
-    console.error('Login error:', err.message, err.stack);
+    console.error(`[${new Date().toISOString()}] Login error:`, err.message, err.stack);
     return res.status(500).json({ error: 'Server error' });
   }
 });
@@ -85,24 +87,25 @@ router.post('/tourist/signup', async (req, res) => {
   const { fullName, email, password, country } = req.body;
 
   try {
-    console.log('Tourist signup attempt:', { fullName, email, country });
+    console.log(`[${new Date().toISOString()}] Tourist signup attempt:`, { fullName, email, country });
     if (!fullName || !email || !password || !country) {
+      console.error(`[${new Date().toISOString()}] Missing required fields for tourist signup`);
       return res.status(400).json({ error: 'All fields are required' });
     }
 
     const existingTourist = await Tourist.findOne({ email });
     if (existingTourist) {
-      console.error('Email already exists:', email);
+      console.error(`[${new Date().toISOString()}] Email already exists: ${email}`);
       return res.status(400).json({ error: 'Email already exists' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const tourist = await Tourist.create({ fullName, email, password: hashedPassword, country });
     const token = jwt.sign({ id: tourist._id, role: 'tourist' }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    console.log('Tourist signed up:', { id: tourist._id });
+    console.log(`[${new Date().toISOString()}] Tourist signed up:`, { id: tourist._id });
     return res.json({ token, role: 'tourist', message: 'Tourist signed up successfully' });
   } catch (err) {
-    console.error('Tourist signup error:', err.message, err.stack);
+    console.error(`[${new Date().toISOString()}] Tourist signup error:`, err.message, err.stack);
     return res.status(500).json({ error: 'Server error' });
   }
 });
@@ -115,26 +118,22 @@ router.post('/provider/signup', upload.fields([
   const { serviceName, fullName, email, contact, category, location, price, description, password } = req.body;
 
   try {
-    console.log('Provider signup attempt:', { serviceName, fullName, email, category });
-
-    // Validate required fields
+    console.log(`[${new Date().toISOString()}] Provider signup attempt:`, { serviceName, fullName, email, category });
     if (!serviceName || !fullName || !email || !contact || !category || !location || !price || !description || !password) {
-      console.error('Missing required fields:', req.body);
+      console.error(`[${new Date().toISOString()}] Missing required fields:`, req.body);
       return res.status(400).json({ error: 'All fields are required' });
     }
     if (!req.files || !req.files.profilePicture || !req.files.photos || req.files.photos.length === 0) {
-      console.error('Missing images:', req.files);
+      console.error(`[${new Date().toISOString()}] Missing images:`, req.files);
       return res.status(400).json({ error: 'Profile picture and at least one photo are required' });
     }
 
-    // Check for existing provider
     const existingProvider = await Provider.findOne({ email });
     if (existingProvider) {
-      console.error('Email already exists:', email);
+      console.error(`[${new Date().toISOString()}] Email already exists: ${email}`);
       return res.status(400).json({ error: 'Email already exists' });
     }
 
-    // Upload profile picture to Cloudinary
     const profilePictureFile = req.files.profilePicture[0];
     const profileResult = await cloudinary.v2.uploader.upload(
       `data:${profilePictureFile.mimetype};base64,${profilePictureFile.buffer.toString('base64')}`,
@@ -142,7 +141,6 @@ router.post('/provider/signup', upload.fields([
     );
     const profilePictureUrl = profileResult.secure_url;
 
-    // Upload additional photos to Cloudinary
     const photosUrls = [];
     for (const file of req.files.photos) {
       const photoResult = await cloudinary.v2.uploader.upload(
@@ -152,10 +150,7 @@ router.post('/provider/signup', upload.fields([
       photosUrls.push(photoResult.secure_url);
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create provider
     const provider = await Provider.create({
       serviceName,
       fullName,
@@ -172,14 +167,14 @@ router.post('/provider/signup', upload.fields([
     });
 
     const token = jwt.sign({ id: provider._id, role: 'provider' }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    console.log('Provider signed up, pending approval:', { id: provider._id });
+    console.log(`[${new Date().toISOString()}] Provider signed up, pending approval:`, { id: provider._id });
     return res.json({ token, role: 'provider', message: 'Provider signed up successfully, pending approval' });
   } catch (err) {
-    console.error('Provider signup error:', err.message, err.stack);
+    console.error(`[${new Date().toISOString()}] Provider signup error:`, err.message, err.stack);
     if (err.message.includes('Only JPEG/PNG images')) {
       return res.status(400).json({ error: err.message });
     }
-    return res.status(500).json({ error: `Server error: ${err.message}` });
+    return res.status(500).json({ error: 'Server error' });
   }
 });
 
