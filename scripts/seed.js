@@ -46,7 +46,7 @@ const seedDB = async () => {
     // Create tourist
     const hashedPassword = await bcrypt.hash('Tourist123!', 10);
     const tourist = await Tourist.create({
-      _id: new mongoose.Types.ObjectId('68d2c8e753f6a3586d9429fa'),
+      _id: new mongoose.Types.ObjectId('68d2c8e753f6a3586d9429fa'), // Match token ID
       fullName: 'Test Tourist',
       email: 'tourist@jeepbooking.com',
       password: hashedPassword,
@@ -54,57 +54,24 @@ const seedDB = async () => {
     });
     console.log(`[${new Date().toISOString()}] Created tourist: ${tourist._id}`);
 
-    // Define image path
-    const imagePath = process.env.CLOUDINARY_CLOUD_NAME
-      ? `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/provider_profiles/bicycle.jpg`
-      : 'images/bicycle.jpeg';
-
-    // Create providers
-    const providers = await Provider.insertMany([
-      {
-        serviceName: 'Test Jeep Safari',
-        fullName: 'Test Provider',
-        email: 'provider@jeepbooking.com',
-        contact: '1234567890',
-        category: 'Jeep Safari',
-        location: 'Hiriwadunna',
-        price: 100,
-        description: 'A thrilling jeep safari experience',
-        password: hashedPassword,
-        profilePicture: imagePath,
-        photos: [],
-        approved: true
-      },
-      {
-        serviceName: 'Hiriwadunna Village Tour and Jeep Safari One Day Tour',
-        fullName: 'Hiriwadunna Tour Operator',
-        email: 'hiriwadunna@jeepbooking.com',
-        contact: '1234567891',
-        category: 'Village Tour',
-        location: 'Hiriwadunna',
-        price: 45,
-        description: 'Embark on an immersive one-day adventure combining the cultural charm of Hiriwadunna village with an exhilarating Jeep Safari. Explore traditional village life, interact with locals, and experience the thrill of a safari through Sri Lanka’s stunning landscapes, spotting wildlife and soaking in the natural beauty.',
-        password: hashedPassword,
-        profilePicture: imagePath,
-        photos: [],
-        approved: true
-      },
-      {
-        serviceName: 'Village Tour and Jeep Safari Sigiriya Tour Dambulla Temple',
-        fullName: 'Sigiriya Tour Operator',
-        email: 'sigiriya@jeepbooking.com',
-        contact: '1234567892',
-        category: 'Village Tour',
-        location: 'Sigiriya',
-        price: 78,
-        description: 'Discover the heart of Sri Lanka with this two-day tour, blending cultural exploration and adventure. Wander through authentic villages, conquer the iconic Sigiriya Rock Fortress, visit the historic Dambulla Cave Temple, and enjoy a thrilling Jeep Safari through the wilderness, all while immersing yourself in the rich heritage and natural wonders.',
-        password: hashedPassword,
-        profilePicture: imagePath,
-        photos: [],
-        approved: true
-      }
-    ]);
-    console.log(`[${new Date().toISOString()}] Created providers: ${providers.map(p => p._id).join(', ')}`);
+    // Create provider
+    const provider = await Provider.create({
+      serviceName: 'Test Jeep Safari',
+      fullName: 'Test Provider',
+      email: 'provider@jeepbooking.com',
+      contact: '1234567890',
+      category: 'Jeep Safari',
+      location: 'Hiriwadunna',
+      price: 100,
+      description: 'A thrilling jeep safari experience',
+      password: hashedPassword,
+      profilePicture: process.env.CLOUDINARY_CLOUD_NAME
+        ? `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/provider_profiles/placeholder.jpg`
+        : 'images/placeholder.jpg',
+      photos: [],
+      approved: true
+    });
+    console.log(`[${new Date().toISOString()}] Created provider: ${provider._id}`);
 
     // Create contact
     const contact = await Contact.create({
@@ -118,12 +85,12 @@ const seedDB = async () => {
     // Create booking
     const booking = await Booking.create({
       touristId: tourist._id,
-      providerId: providers[0]._id,
+      providerId: provider._id,
       date: new Date(),
       time: '10:00',
       adults: 2,
       children: 0,
-      totalPrice: providers[0].price * 300 * 2,
+      totalPrice: provider.price * 300 * 2,
       status: 'confirmed',
       contactId: contact._id
     });
@@ -131,7 +98,7 @@ const seedDB = async () => {
 
     // Create review
     const review = await Review.create({
-      targetId: providers[0]._id.toString(),
+      targetId: provider._id.toString(),
       reviewerId: tourist._id,
       rating: 5,
       comment: 'Amazing experience!',
