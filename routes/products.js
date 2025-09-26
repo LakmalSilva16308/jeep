@@ -1,29 +1,218 @@
 import express from 'express';
+import mongoose from 'mongoose';
+import Provider from '../models/Provider.js';
+import { authenticateToken, isAdmin } from '../middleware/auth.js';
+import multer from 'multer';
+import cloudinary from 'cloudinary';
+import dotenv from 'dotenv';
+import bcryptjs from 'bcryptjs';
+
+dotenv.config();
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 const router = express.Router();
 
-// Define company products with prices (in USD)
-const companyProducts = [
-  { name: 'Jeep Safari', price: 38, description: 'Explore the wilderness with an exciting jeep safari adventure.' },
-  { name: 'Tuk Tuk Adventures', price: null, description: 'Experience the local culture with a thrilling tuk-tuk ride.' },
-  { name: 'Catamaran Boat Ride', price: 9.8, description: 'Sail on a traditional catamaran for a serene experience.' },
-  { name: 'Village Cooking Experience', price: 15, description: 'Learn to cook authentic local dishes with villagers.' },
-  { name: 'Traditional Village Lunch', price: 15, description: 'Enjoy a delicious traditional meal in a village setting.' },
-  { name: 'Sundowners Cocktail', price: null, description: 'Relax with a cocktail while watching the sunset.' },
-  { name: 'High Tea', price: null, description: 'Indulge in a classic high tea experience.' },
-  { name: 'Bullock Cart Ride', price: 9.9, description: 'Travel back in time with a traditional bullock cart ride.' },
-  { name: 'Budget Village Tour', price: 19.9, description: 'Discover village life on a budget-friendly tour.' },
-  { name: 'Village Tour', price: 19.9, description: 'Immerse yourself in the rich culture and traditions of a local village.' }
-];
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  fileFilter: (req, file, cb) => {
+    const filetypes = /jpeg|jpg|png/;
+    const mimetype = filetypes.test(file.mimetype);
+    if (mimetype) {
+      return cb(null, true);
+    }
+    cb(new Error('Images only (jpeg, jpg, png)!'));
+  },
+  limits: { fileSize: 2 * 1024 * 1024 }
+});
 
-// Get all company products (public)
 router.get('/', async (req, res) => {
   try {
-    console.log('Fetching company products');
-    res.json(companyProducts);
+    const { approved, limit } = req.query;
+    const query = approved === 'true' ? { approved: true } : {};
+    console.log(`[${new Date().toISOString()}] Fetching providers with query:`, { approved, limit });
+    const providers = await Provider.find(query)
+      .limit(parseInt(limit) || 0)
+      .select('serviceName fullName email contact category location price description profilePicture photos approved')
+      .lean();
+    const providersWithFallback = providers.map(provider => ({
+      ...provider,
+      profilePicture: provider.profilePicture || '/images/placeholder.jpg'
+    }));
+    console.log(`[${new Date().toISOString()}] Fetched ${providers.length} providers (approved=${approved}, limit=${limit})`);
+    res.json(providersWithFallback || []);
   } catch (err) {
-    console.error('Error fetching company products:', err.message, err.stack);
-    res.status(500).json({ error: 'Server error: Failed to fetch products' });
+    console.error(`[${new Date().toISOString()}] Error fetching providers:`, err.message, err.stack);
+    res.status(500).json({ error: 'Server error: Failed to fetch providers' });
+  }
+});
+
+router.get('/admin', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    console.log(`[${new Date().toISOString()}] Fetching all providers for admin`);
+    const providers = await Provider.find()
+      .select('serviceName fullName email contact category location price description profilePicture photos approved')
+      .lean();
+    const providersWithFallback = providers.map(provider => ({
+      ...provider,
+      profilePicture: provider.profilePicture || '/images/placeholder.jpg'
+    }));
+    console.log(`[${new Date().toISOString()}] Fetched ${providers.length} providers for admin`);
+    res.json(providersWithFallback || []);
+  } catch (err) {
+    console.error(`[${new Date().toISOString()}] Error fetching providers for admin:`, err.message, err.stack);
+    res.status(500).json({ error: 'Server error: Failed to fetch providers' });
+  }
+});
+
+router.get('/admin/pending', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    console.log(`[${new Date().toISOString()}] Fetching pending providers for admin`);
+    const providers = await Provider.find({ approved: false })
+      .select('serviceName fullName email contact category location price description profilePicture photos approved')
+      .lean();
+    const providersWithFallback = providers.map(provider => ({
+      ...provider,
+      profilePicture: provider.profilePicture || '/images/placeholder.jpg'
+    }));
+    console.log(`[${new Date().toISOString()}] Fetched ${providers.length} pending providers for admin`);
+    res.json(providersWithFallback || []);
+  } catch (err) {
+    console.error(`[${new Date().toISOString()}] Error fetching pending providers:`, err.message, err.stack);
+    res.status(500).json({ error: 'Server error: Failed to fetch pending providers' });
+  }
+});
+
+router.post('/admin', authenticateToken, isAdmin, upload.fields([
+  { name: 'profilePicture', maxCount: 1 },
+  { name: 'photos', maxCount: 5 }
+]), async (req, res) => {
+  try {
+    const { serviceName, fullName, email, contact, category, location, price, description, password } = req.body;
+    if (!serviceName || !fullName || !email || !contact || !category || !location || !price || !description || !password) {
+      console.error(`[${new Date().toISOString()}] Missing required fields:`, { body: req.body, files: req.files });
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    let profilePicture = null;
+    if (req.files['profilePicture']) {
+      const profilePictureFile = req.files['profilePicture'][0];
+      const profileResult = await cloudinary.v2.uploader.upload(
+        `data:${profilePictureFile.mimetype};base64,${profilePictureFile.buffer.toString('base64')}`,
+        { folder: 'provider_profiles', resource_type: 'image' }
+      );
+      profilePicture = profileResult.secure_url;
+    }
+
+    const photos = [];
+    if (req.files['photos']) {
+      for (const file of req.files['photos']) {
+        const photoResult = await cloudinary.v2.uploader.upload(
+          `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
+          { folder: 'provider_photos', resource_type: 'image' }
+        );
+        photos.push(photoResult.secure_url);
+      }
+    }
+
+    const hashedPassword = await bcryptjs.hash(password, 10);
+    const provider = await Provider.create({
+      serviceName,
+      fullName,
+      email,
+      contact,
+      category,
+      location,
+      price: parseFloat(price),
+      description,
+      password: hashedPassword,
+      profilePicture,
+      photos,
+      approved: true
+    });
+    console.log(`[${new Date().toISOString()}] Provider added: ${provider._id}`);
+    res.json({ message: 'Provider added', provider: provider.toObject() });
+  } catch (err) {
+    console.error(`[${new Date().toISOString()}] Error adding provider:`, err.message, err.stack);
+    if (err.message === 'Email already exists') {
+      return res.status(400).json({ error: 'Email already exists' });
+    }
+    if (err.message.includes('Images only')) {
+      return res.status(400).json({ error: err.message });
+    }
+    res.status(500).json({ error: 'Server error: Failed to add provider' });
+  }
+});
+
+router.put('/admin/:id/approve', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      console.error(`[${new Date().toISOString()}] Invalid provider ID: ${req.params.id}`);
+      return res.status(400).json({ error: 'Invalid Provider ID' });
+    }
+    const provider = await Provider.findByIdAndUpdate(
+      req.params.id,
+      { approved: true },
+      { new: true }
+    ).lean();
+    if (!provider) {
+      console.error(`[${new Date().toISOString()}] Provider not found: ${req.params.id}`);
+      return res.status(404).json({ error: 'Provider not found' });
+    }
+    console.log(`[${new Date().toISOString()}] Provider approved: ${provider._id}`);
+    res.json({ message: 'Provider approved', provider });
+  } catch (err) {
+    console.error(`[${new Date().toISOString()}] Error approving provider ${req.params.id}:`, err.message, err.stack);
+    res.status(500).json({ error: 'Server error: Failed to approve provider' });
+  }
+});
+
+router.delete('/admin/:id', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      console.error(`[${new Date().toISOString()}] Invalid provider ID: ${req.params.id}`);
+      return res.status(400).json({ error: 'Invalid Provider ID' });
+    }
+    const provider = await Provider.findByIdAndDelete(req.params.id);
+    if (!provider) {
+      console.error(`[${new Date().toISOString()}] Provider not found: ${req.params.id}`);
+      return res.status(404).json({ error: 'Provider not found' });
+    }
+    console.log(`[${new Date().toISOString()}] Provider deleted: ${req.params.id}`);
+    res.json({ message: 'Provider deleted' });
+  } catch (err) {
+    console.error(`[${new Date().toISOString()}] Error deleting provider ${req.params.id}:`, err.message, err.stack);
+    res.status(500).json({ error: 'Server error: Failed to delete provider' });
+  }
+});
+
+router.get('/:id', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      console.error(`[${new Date().toISOString()}] Invalid provider ID: ${req.params.id}`);
+      return res.status(400).json({ error: 'Invalid Provider ID' });
+    }
+    const provider = await Provider.findById(req.params.id)
+      .select('serviceName fullName email contact category location price description profilePicture photos approved')
+      .lean();
+    if (!provider) {
+      console.error(`[${new Date().toISOString()}] Provider not found: ${req.params.id}`);
+      return res.status(404).json({ error: 'Provider not found' });
+    }
+    const providerWithFallback = {
+      ...provider,
+      profilePicture: provider.profilePicture || '/images/placeholder.jpg'
+    };
+    console.log(`[${new Date().toISOString()}] Fetched provider: ${provider._id}`);
+    res.json(providerWithFallback);
+  } catch (err) {
+    console.error(`[${new Date().toISOString()}] Error fetching provider ${req.params.id}:`, err.message, err.stack);
+    res.status(500).json({ error: 'Server error: Failed to fetch provider' });
   }
 });
 

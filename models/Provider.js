@@ -14,7 +14,14 @@ const providerSchema = new mongoose.Schema({
   category: { 
     type: String, 
     required: true,
-    enum: ['Jeep Safari', 'Tuk Tuk Ride', 'Catamaran Boat Ride', 'Bullock Cart Ride', 'Village Lunch']
+    enum: [
+      'Jeep Safari',
+      'Tuk Tuk Ride',
+      'Catamaran Boat Ride',
+      'Bullock Cart Ride',
+      'Village Lunch',
+      'Village Tour' // Added new category for the tours
+    ]
   },
   location: { type: String, required: true },
   price: { type: Number, required: true, min: 0 },
