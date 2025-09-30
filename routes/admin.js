@@ -300,7 +300,7 @@ router.post('/bookings/admin', verifyAdmin, async (req, res) => {
         return res.status(404).json({ error: 'Provider not found' });
       }
       bookingData.providerId = providerId;
-      bookingData.totalPrice = provider.price * (Number(adults) + Number(children || 0) * 0.5);
+      bookingData.totalPrice = provider.price * (Number(adults) + Number(children || 0) );
     } else if (productType) {
       const pricing = PRICING_STRUCTURE[productType];
       if (!pricing) {
