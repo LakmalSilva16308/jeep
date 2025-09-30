@@ -107,7 +107,7 @@ router.post('/product', authenticateToken, async (req, res) => {
       time,
       adults: Number(adults),
       children: Number(children || 0),
-      totalPrice: Number(totalPrice),
+      totalPrice: Number(totalPrice) ,
       specialNotes,
       status: 'pending',
       contactId: contactDoc._id
@@ -367,7 +367,7 @@ router.post('/admin', authenticateToken, isAdmin, async (req, res) => {
         return res.status(404).json({ error: 'Provider not found or not approved' });
       }
       bookingData.providerId = providerId;
-      bookingData.totalPrice = totalPrice ? Number(totalPrice)  : provider.price * (Number(adults) + 0.5 * Number(children || 0));
+      bookingData.totalPrice = totalPrice ? Number(totalPrice)  : provider.price  * (Number(adults) + 0.5 * Number(children || 0));
     } else if (productType) {
       bookingData.productType = productType;
       bookingData.totalPrice = Number(totalPrice) ;
