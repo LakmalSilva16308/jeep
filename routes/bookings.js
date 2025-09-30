@@ -107,7 +107,7 @@ router.post('/product', authenticateToken, async (req, res) => {
       time,
       adults: Number(adults),
       children: Number(children || 0),
-      totalPrice: Number(totalPrice) * 300,
+      totalPrice: Number(totalPrice) ,
       specialNotes,
       status: 'pending',
       contactId: contactDoc._id
