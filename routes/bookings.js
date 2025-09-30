@@ -41,7 +41,7 @@ router.post('/', authenticateToken, async (req, res) => {
       phone: contact.phone
     });
 
-    const totalPrice = provider.price * 300 * (Number(adults) + 0.5 * Number(children || 0));
+    const totalPrice = provider.price * (Number(adults) + 0.5 * Number(children || 0));
     const booking = await Booking.create({
       touristId: req.user.id,
       providerId,
@@ -107,7 +107,7 @@ router.post('/product', authenticateToken, async (req, res) => {
       time,
       adults: Number(adults),
       children: Number(children || 0),
-      totalPrice: Number(totalPrice) ,
+      totalPrice: Number(totalPrice) * 300,
       specialNotes,
       status: 'pending',
       contactId: contactDoc._id
