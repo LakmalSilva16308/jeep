@@ -67,7 +67,7 @@ const PRICING_STRUCTURE = {
     { min: 31, max: 50, price: 15 }
   ],
   'Traditional Village Lunch': [
-    { min: 1, max: Infinity, price: 15 }
+    { min: 1, max: Infinity, price: 9 }
   ],
   'Sundowners Cocktail': null,
   'High Tea': null,
