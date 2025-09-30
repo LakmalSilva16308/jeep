@@ -367,10 +367,10 @@ router.post('/admin', authenticateToken, isAdmin, async (req, res) => {
         return res.status(404).json({ error: 'Provider not found or not approved' });
       }
       bookingData.providerId = providerId;
-      bookingData.totalPrice = totalPrice ? Number(totalPrice)  : provider.price  * (Number(adults) + 0.5 * Number(children || 0));
+      bookingData.totalPrice = totalPrice ? Number(totalPrice) * 300 : provider.price * 300 * (Number(adults) + 0.5 * Number(children || 0));
     } else if (productType) {
       bookingData.productType = productType;
-      bookingData.totalPrice = Number(totalPrice) ;
+      bookingData.totalPrice = Number(totalPrice) * 300;
     }
 
     const booking = await Booking.create(bookingData);
