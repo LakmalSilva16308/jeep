@@ -29,9 +29,12 @@ const allowedOrigins = [
 // CORS configuration with preflight handling
 app.use(cors({
   origin: (origin, callback) => {
-    console.log(`[${new Date().toISOString()}] CORS Origin: ${origin}`);
+    // Enhanced logging: Log the actual header value
+    console.log(`[${new Date().toISOString()}] Raw Origin Header: "${req?.headers?.origin || 'undefined'}"`);
+    console.log(`[${new Date().toISOString()}] CORS Check Origin: "${origin || 'undefined'}"`);
+    
     if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, origin); // Return the specific origin instead of true
+      callback(null, origin || '*'); // Fallback to '*' for undefined origins
     } else {
       console.error(`[${new Date().toISOString()}] CORS blocked for origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
@@ -44,8 +47,17 @@ app.use(cors({
   optionsSuccessStatus: 204 // Handle preflight requests correctly
 }));
 
-// Explicitly handle preflight OPTIONS requests
+// Explicitly handle preflight OPTIONS requests (place after main CORS for Vercel)
 app.options('*', cors());
+
+// NEW: Root route to prevent 404s on direct access
+app.get('/', (req, res) => {
+  console.log(`[${new Date().toISOString()}] Root access from origin: ${req.headers.origin || 'direct'}`);
+  res.json({ 
+    message: 'SLECO Tour Backend API - Healthy and Running', 
+    endpoints: '/api/health, /api/auth/*, etc.' 
+  });
+});
 
 // Global error handler
 app.use((err, req, res, next) => {
