@@ -17,7 +17,7 @@ dotenv.config();
 
 const app = express();
 
-// CORS middleware to allow all origins
+// Simplified CORS handling
 app.use((req, res, next) => {
   const origin = req.get('Origin');
   console.log(`[${new Date().toISOString()}] Request: ${req.method} ${req.url}, Origin: ${origin}`);
@@ -66,6 +66,7 @@ connectDB();
 app.get('/api/health', async (req, res) => {
   try {
     const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+    console.log(`[${new Date().toISOString()}] Health check requested`);
     res.json({ status: 'ok', database: dbStatus });
   } catch (err) {
     console.error(`[${new Date().toISOString()}] Health check error:`, err.message);
