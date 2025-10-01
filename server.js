@@ -18,23 +18,17 @@ dotenv.config();
 
 const app = express();
 
-// Define allowed origins for CORS
 const allowedOrigins = [
   'http://localhost:3000',
   'https://jeep-booking-frontend.vercel.app',
-  'https://www.slecotour.com',
-  'https://slecotour.com' // Added non-www version for flexibility
+  'https://www.slecotour.com'
 ];
 
-// CORS configuration with preflight handling
 app.use(cors({
   origin: (origin, callback) => {
-    // Enhanced logging: Log the actual header value
-    console.log(`[${new Date().toISOString()}] Raw Origin Header: "${req?.headers?.origin || 'undefined'}"`);
-    console.log(`[${new Date().toISOString()}] CORS Check Origin: "${origin || 'undefined'}"`);
-    
+    console.log(`[${new Date().toISOString()}] CORS Origin: ${origin}`);
     if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, origin || '*'); // Fallback to '*' for undefined origins
+      callback(null, true);
     } else {
       console.error(`[${new Date().toISOString()}] CORS blocked for origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
@@ -42,24 +36,9 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With', 'Accept'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  optionsSuccessStatus: 204 // Handle preflight requests correctly
+  allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With', 'Accept']
 }));
 
-// Explicitly handle preflight OPTIONS requests (place after main CORS for Vercel)
-app.options('*', cors());
-
-// NEW: Root route to prevent 404s on direct access
-app.get('/', (req, res) => {
-  console.log(`[${new Date().toISOString()}] Root access from origin: ${req.headers.origin || 'direct'}`);
-  res.json({ 
-    message: 'SLECO Tour Backend API - Healthy and Running', 
-    endpoints: '/api/health, /api/auth/*, etc.' 
-  });
-});
-
-// Global error handler
 app.use((err, req, res, next) => {
   console.error(`[${new Date().toISOString()}] Server error:`, err.message, err.stack);
   res.status(500).json({ error: 'Internal server error' });
@@ -139,10 +118,5 @@ app.post('/api/contact', async (req, res) => {
 
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.get('/favicon.png', (req, res) => res.status(204).end());
-
-// Handle unmatched routes
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
-});
 
 export default app;
