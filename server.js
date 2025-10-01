@@ -39,6 +39,8 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With', 'Accept']
 }));
 
+app.options('*', cors());
+
 app.use((err, req, res, next) => {
   console.error(`[${new Date().toISOString()}] Server error:`, err.message, err.stack);
   res.status(500).json({ error: 'Internal server error' });
