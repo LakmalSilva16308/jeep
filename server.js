@@ -28,7 +28,7 @@ app.use(cors({
   origin: (origin, callback) => {
     console.log(`[${new Date().toISOString()}] CORS Origin: ${origin}`);
     if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
+      callback(null, origin || '*');
     } else {
       console.error(`[${new Date().toISOString()}] CORS blocked for origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
@@ -36,10 +36,22 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With', 'Accept']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Access-Control-Allow-Origin']
 }));
 
-app.options('*', cors());
+// Explicitly handle OPTIONS requests
+app.options('*', (req, res) => {
+  console.log(`[${new Date().toISOString()}] Handling OPTIONS request for: ${req.url}`);
+  const origin = req.get('Origin') && allowedOrigins.includes(req.get('Origin')) ? req.get('Origin') : '*';
+  res.set({
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Content-Length, X-Requested-With, Accept',
+    'Access-Control-Max-Age': '86400'
+  });
+  res.status(204).end();
+});
 
 app.use((err, req, res, next) => {
   console.error(`[${new Date().toISOString()}] Server error:`, err.message, err.stack);
