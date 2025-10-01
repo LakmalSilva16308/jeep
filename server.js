@@ -18,17 +18,20 @@ dotenv.config();
 
 const app = express();
 
+// Define allowed origins for CORS
 const allowedOrigins = [
   'http://localhost:3000',
   'https://jeep-booking-frontend.vercel.app',
-  'https://www.slecotour.com'
+  'https://www.slecotour.com',
+  'https://slecotour.com' // Added non-www version for flexibility
 ];
 
+// CORS configuration with preflight handling
 app.use(cors({
   origin: (origin, callback) => {
     console.log(`[${new Date().toISOString()}] CORS Origin: ${origin}`);
     if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
+      callback(null, origin); // Return the specific origin instead of true
     } else {
       console.error(`[${new Date().toISOString()}] CORS blocked for origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
@@ -36,9 +39,15 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With', 'Accept']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  optionsSuccessStatus: 204 // Handle preflight requests correctly
 }));
 
+// Explicitly handle preflight OPTIONS requests
+app.options('*', cors());
+
+// Global error handler
 app.use((err, req, res, next) => {
   console.error(`[${new Date().toISOString()}] Server error:`, err.message, err.stack);
   res.status(500).json({ error: 'Internal server error' });
@@ -118,5 +127,10 @@ app.post('/api/contact', async (req, res) => {
 
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.get('/favicon.png', (req, res) => res.status(204).end());
+
+// Handle unmatched routes
+app.use((req, res) => {
+  res.status(404).json({ error: 'Route not found' });
+});
 
 export default app;
