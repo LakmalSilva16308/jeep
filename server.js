@@ -20,7 +20,8 @@ const app = express();
 
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://jeep-booking-frontend.vercel.app'
+  'https://jeep-booking-frontend.vercel.app',
+  'https://www.slecotour.com'
 ];
 
 app.use(cors({
