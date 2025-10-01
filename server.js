@@ -37,9 +37,10 @@ app.use(cors({
   origin: (origin, callback) => {
     console.log(`[${new Date().toISOString()}] CORS Check Origin: "${origin || 'undefined'}"`);
     if (!origin || allowedOrigins.includes(origin)) {
+      console.log(`[${new Date().toISOString()}] CORS Allowed for Origin: "${origin || 'undefined'}"`);
       callback(null, origin || '*'); // Fallback to '*' for undefined origins
     } else {
-      console.error(`[${new Date().toISOString()}] CORS blocked for origin: ${origin}`);
+      console.error(`[${new Date().toISOString()}] CORS Blocked for Origin: "${origin}"`);
       callback(new Error('Not allowed by CORS'));
     }
   },
