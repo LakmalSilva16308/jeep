@@ -133,4 +133,10 @@ app.post('/api/contact', async (req, res) => {
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.get('/favicon.png', (req, res) => res.status(204).end());
 
+// Fallback for debugging 404 errors
+app.use((req, res) => {
+  console.log(`[${new Date().toISOString()}] 404 Not Found: ${req.method} ${req.url}`);
+  res.status(404).json({ error: 'Route not found' });
+});
+
 export default app;
