@@ -26,13 +26,25 @@ const allowedOrigins = [
   'https://slecotour.com' // Non-www version for flexibility
 ];
 
-// Middleware to log request origins for debugging
+// Middleware to log request details and set CORS headers explicitly
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] Raw Origin Header: "${req.headers.origin || 'undefined'}"`);
+  const origin = req.headers.origin || 'undefined';
+  console.log(`[${new Date().toISOString()}] Request: ${req.method} ${req.url} | Origin: "${origin}"`);
+  
+  // Set CORS headers early for all responses
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With, Accept');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Range, X-Content-Range');
+    console.log(`[${new Date().toISOString()}] Set CORS headers for Origin: "${origin}"`);
+  }
+  
   next();
 });
 
-// CORS configuration with preflight handling
+// CORS middleware for additional handling
 app.use(cors({
   origin: (origin, callback) => {
     console.log(`[${new Date().toISOString()}] CORS Check Origin: "${origin || 'undefined'}"`);
