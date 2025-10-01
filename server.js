@@ -38,13 +38,20 @@ app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With, Accept');
     res.setHeader('Access-Control-Expose-Headers', 'Content-Range, X-Content-Range');
+    res.setHeader('Access-Control-Max-Age', '86400');
     console.log(`[${new Date().toISOString()}] Set CORS headers for Origin: "${origin}"`);
+  }
+  
+  // Handle OPTIONS requests early
+  if (req.method === 'OPTIONS') {
+    console.log(`[${new Date().toISOString()}] Handling OPTIONS preflight for: ${req.url}`);
+    return res.status(204).end();
   }
   
   next();
 });
 
-// CORS middleware for additional handling
+// CORS middleware for additional validation
 app.use(cors({
   origin: (origin, callback) => {
     console.log(`[${new Date().toISOString()}] CORS Check Origin: "${origin || 'undefined'}"`);
@@ -63,7 +70,7 @@ app.use(cors({
   optionsSuccessStatus: 204 // Handle preflight requests correctly
 }));
 
-// Explicitly handle preflight OPTIONS requests
+// Explicitly handle preflight OPTIONS requests (redundant but kept for robustness)
 app.options('*', cors());
 
 // Global error handler
