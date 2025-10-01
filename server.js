@@ -23,16 +23,19 @@ const allowedOrigins = [
   'http://localhost:3000',
   'https://jeep-booking-frontend.vercel.app',
   'https://www.slecotour.com',
-  'https://slecotour.com' // Added non-www version for flexibility
+  'https://slecotour.com' // Non-www version for flexibility
 ];
+
+// Middleware to log request origins for debugging
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] Raw Origin Header: "${req.headers.origin || 'undefined'}"`);
+  next();
+});
 
 // CORS configuration with preflight handling
 app.use(cors({
   origin: (origin, callback) => {
-    // Enhanced logging: Log the actual header value
-    console.log(`[${new Date().toISOString()}] Raw Origin Header: "${req?.headers?.origin || 'undefined'}"`);
     console.log(`[${new Date().toISOString()}] CORS Check Origin: "${origin || 'undefined'}"`);
-    
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, origin || '*'); // Fallback to '*' for undefined origins
     } else {
@@ -47,17 +50,8 @@ app.use(cors({
   optionsSuccessStatus: 204 // Handle preflight requests correctly
 }));
 
-// Explicitly handle preflight OPTIONS requests (place after main CORS for Vercel)
+// Explicitly handle preflight OPTIONS requests
 app.options('*', cors());
-
-// NEW: Root route to prevent 404s on direct access
-app.get('/', (req, res) => {
-  console.log(`[${new Date().toISOString()}] Root access from origin: ${req.headers.origin || 'direct'}`);
-  res.json({ 
-    message: 'SLECO Tour Backend API - Healthy and Running', 
-    endpoints: '/api/health, /api/auth/*, etc.' 
-  });
-});
 
 // Global error handler
 app.use((err, req, res, next) => {
@@ -69,6 +63,15 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.raw({ type: 'application/json', limit: '10mb' }));
 app.use('/Uploads', express.static(path.join(process.cwd(), 'Uploads')));
+
+// Root route to prevent 404s on direct access
+app.get('/', (req, res) => {
+  console.log(`[${new Date().toISOString()}] Root access from origin: ${req.headers.origin || 'direct'}`);
+  res.json({ 
+    message: 'SLECO Tour Backend API - Healthy and Running', 
+    endpoints: '/api/health, /api/auth/*, etc.' 
+  });
+});
 
 // MongoDB Connection with retry logic
 const connectDB = async () => {
