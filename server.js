@@ -36,14 +36,9 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With', 'Accept'],
-  optionsSuccessStatus: 204 // Handle preflight requests
+  allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With', 'Accept']
 }));
 
-// Handle preflight OPTIONS requests
-app.options('*', cors());
-
-// Global error handler
 app.use((err, req, res, next) => {
   console.error(`[${new Date().toISOString()}] Server error:`, err.message, err.stack);
   res.status(500).json({ error: 'Internal server error' });
@@ -119,12 +114,6 @@ app.post('/api/contact', async (req, res) => {
     console.error(`[${new Date().toISOString()}] Error saving contact message:`, err.message, err.stack);
     res.status(500).json({ error: 'Server error: Failed to save contact message' });
   }
-});
-
-// Fallback route for invalid endpoints
-app.use((req, res) => {
-  console.error(`[${new Date().toISOString()}] Invalid route accessed: ${req.method} ${req.originalUrl}`);
-  res.status(404).json({ error: 'Route not found' });
 });
 
 app.get('/favicon.ico', (req, res) => res.status(204).end());
