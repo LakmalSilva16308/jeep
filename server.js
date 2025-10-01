@@ -18,27 +18,25 @@ dotenv.config();
 
 const app = express();
 
-const allowedOrigins = [
-  'http://localhost:3000',
-  'https://jeep-booking-frontend.vercel.app',
-  'https://www.slecotour.com'
-];
-
+// Simplified CORS for debugging
 app.use(cors({
-  origin: (origin, callback) => {
-    console.log(`[${new Date().toISOString()}] CORS Origin: ${origin}`);
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.error(`[${new Date().toISOString()}] CORS blocked for origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: [
+    'http://localhost:3000',
+    'https://jeep-booking-frontend.vercel.app',
+    'https://www.slecotour.com'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With', 'Accept']
 }));
 
+// Log all incoming requests
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} from ${req.headers.origin}`);
+  next();
+});
+
+// Error handling middleware
 app.use((err, req, res, next) => {
   console.error(`[${new Date().toISOString()}] Server error:`, err.message, err.stack);
   res.status(500).json({ error: 'Internal server error' });
@@ -114,6 +112,12 @@ app.post('/api/contact', async (req, res) => {
     console.error(`[${new Date().toISOString()}] Error saving contact message:`, err.message, err.stack);
     res.status(500).json({ error: 'Server error: Failed to save contact message' });
   }
+});
+
+// Handle undefined routes
+app.use((req, res) => {
+  console.error(`[${new Date().toISOString()}] 404 Not Found: ${req.method} ${req.url}`);
+  res.status(404).json({ error: 'Route not found' });
 });
 
 app.get('/favicon.ico', (req, res) => res.status(204).end());
