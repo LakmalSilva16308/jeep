@@ -24,44 +24,36 @@ const allowedOrigins = [
   'https://www.slecotour.com'
 ];
 
-app.use(cors({
-  origin: (origin, callback) => {
-    console.log(`[${new Date().toISOString()}] CORS Origin: ${origin}`);
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, origin || '*');
-    } else {
-      console.error(`[${new Date().toISOString()}] CORS blocked for origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With', 'Accept'],
-  exposedHeaders: ['Access-Control-Allow-Origin']
-}));
-
-// Explicitly handle OPTIONS requests
-app.options('*', (req, res) => {
-  console.log(`[${new Date().toISOString()}] Handling OPTIONS request for: ${req.url}`);
-  const origin = req.get('Origin') && allowedOrigins.includes(req.get('Origin')) ? req.get('Origin') : '*';
-  res.set({
-    'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Content-Length, X-Requested-With, Accept',
-    'Access-Control-Max-Age': '86400'
-  });
-  res.status(204).end();
-});
-
-app.use((err, req, res, next) => {
-  console.error(`[${new Date().toISOString()}] Server error:`, err.message, err.stack);
-  res.status(500).json({ error: 'Internal server error' });
+// CORS middleware
+app.use((req, res, next) => {
+  const origin = req.get('Origin');
+  console.log(`[${new Date().toISOString()}] Request: ${req.method} ${req.url}, Origin: ${origin}`);
+  if (!origin || allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With, Accept');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Max-Age', '86400');
+  } else {
+    console.error(`[${new Date().toISOString()}] CORS blocked for origin: ${origin}`);
+  }
+  if (req.method === 'OPTIONS') {
+    console.log(`[${new Date().toISOString()}] Handling OPTIONS request for: ${req.url}`);
+    return res.status(204).end();
+  }
+  next();
 });
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.raw({ type: 'application/json', limit: '10mb' }));
 app.use('/Uploads', express.static(path.join(process.cwd(), 'Uploads')));
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(`[${new Date().toISOString()}] Server error:`, err.message, err.stack);
+  res.status(500).json({ error: 'Internal server error' });
+});
 
 // MongoDB Connection with retry logic
 const connectDB = async () => {
@@ -88,7 +80,7 @@ app.get('/api/health', async (req, res) => {
     res.json({ status: 'ok', database: dbStatus });
   } catch (err) {
     console.error(`[${new Date().toISOString()}] Health check error:`, err.message);
-    res.status(500).json({ status: 'error', error: 'Health check failed' });
+    res.status(500).json({ error: 'Health check failed' });
   }
 });
 
@@ -133,7 +125,7 @@ app.post('/api/contact', async (req, res) => {
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.get('/favicon.png', (req, res) => res.status(204).end());
 
-// Fallback for debugging 404 errors
+// Fallback for 404 errors
 app.use((req, res) => {
   console.log(`[${new Date().toISOString()}] 404 Not Found: ${req.method} ${req.url}`);
   res.status(404).json({ error: 'Route not found' });
