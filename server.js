@@ -18,7 +18,7 @@ dotenv.config();
 
 const app = express();
 
-// Simplified CORS for debugging
+// Simplified CORS configuration
 app.use(cors({
   origin: [
     'http://localhost:3000',
