@@ -48,6 +48,13 @@ app.use((req, res, next) => {
     return res.status(204).end();
   }
   
+  // Log response headers after sending
+  const originalSend = res.send;
+  res.send = function (body) {
+    console.log(`[${new Date().toISOString()}] Response Headers for ${req.method} ${req.url}:`, res.getHeaders());
+    return originalSend.call(this, body);
+  };
+  
   next();
 });
 
