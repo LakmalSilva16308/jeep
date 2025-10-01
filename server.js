@@ -1,6 +1,5 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import authRoutes from './routes/auth.js';
@@ -18,25 +17,15 @@ dotenv.config();
 
 const app = express();
 
-const allowedOrigins = [
-  'http://localhost:3000',
-  'https://jeep-booking-frontend.vercel.app',
-  'https://www.slecotour.com'
-];
-
-// CORS middleware
+// CORS middleware to allow all origins
 app.use((req, res, next) => {
   const origin = req.get('Origin');
   console.log(`[${new Date().toISOString()}] Request: ${req.method} ${req.url}, Origin: ${origin}`);
-  if (!origin || allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With, Accept');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Max-Age', '86400');
-  } else {
-    console.error(`[${new Date().toISOString()}] CORS blocked for origin: ${origin}`);
-  }
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With, Accept');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400');
   if (req.method === 'OPTIONS') {
     console.log(`[${new Date().toISOString()}] Handling OPTIONS request for: ${req.url}`);
     return res.status(204).end();
