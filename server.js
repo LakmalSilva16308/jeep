@@ -18,69 +18,29 @@ dotenv.config();
 
 const app = express();
 
-// Define allowed origins for CORS
 const allowedOrigins = [
   'http://localhost:3000',
   'https://jeep-booking-frontend.vercel.app',
   'https://www.slecotour.com',
-  'https://slecotour.com' // Non-www version for flexibility
+  'https://slecotour.com'
 ];
 
-// Middleware to log request details and set CORS headers explicitly
-app.use((req, res, next) => {
-  const origin = req.headers.origin || 'undefined';
-  console.log(`[${new Date().toISOString()}] Request: ${req.method} ${req.url} | Origin: "${origin}"`);
-  
-  // Set CORS headers early for all responses
-  if (allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With, Accept');
-    res.setHeader('Access-Control-Expose-Headers', 'Content-Range, X-Content-Range');
-    res.setHeader('Access-Control-Max-Age', '86400');
-    console.log(`[${new Date().toISOString()}] Set CORS headers for Origin: "${origin}"`);
-  }
-  
-  // Handle OPTIONS requests early
-  if (req.method === 'OPTIONS') {
-    console.log(`[${new Date().toISOString()}] Handling OPTIONS preflight for: ${req.url}`);
-    return res.status(204).end();
-  }
-  
-  // Log response headers after sending
-  const originalSend = res.send;
-  res.send = function (body) {
-    console.log(`[${new Date().toISOString()}] Response Headers for ${req.method} ${req.url}:`, res.getHeaders());
-    return originalSend.call(this, body);
-  };
-  
-  next();
-});
-
-// CORS middleware for additional validation
 app.use(cors({
   origin: (origin, callback) => {
-    console.log(`[${new Date().toISOString()}] CORS Check Origin: "${origin || 'undefined'}"`);
+    console.log(`[${new Date().toISOString()}] CORS Origin: ${origin}`);
     if (!origin || allowedOrigins.includes(origin)) {
-      console.log(`[${new Date().toISOString()}] CORS Allowed for Origin: "${origin || 'undefined'}"`);
-      callback(null, origin || '*'); // Fallback to '*' for undefined origins
+      callback(null, true);
     } else {
-      console.error(`[${new Date().toISOString()}] CORS Blocked for Origin: "${origin}"`);
+      console.error(`[${new Date().toISOString()}] CORS blocked for origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With', 'Accept'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  optionsSuccessStatus: 204 // Handle preflight requests correctly
+  allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With', 'Accept']
 }));
-
-// Explicitly handle preflight OPTIONS requests (redundant but kept for robustness)
 app.options('*', cors());
 
-// Global error handler
 app.use((err, req, res, next) => {
   console.error(`[${new Date().toISOString()}] Server error:`, err.message, err.stack);
   res.status(500).json({ error: 'Internal server error' });
@@ -90,15 +50,6 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.raw({ type: 'application/json', limit: '10mb' }));
 app.use('/Uploads', express.static(path.join(process.cwd(), 'Uploads')));
-
-// Root route to prevent 404s on direct access
-app.get('/', (req, res) => {
-  console.log(`[${new Date().toISOString()}] Root access from origin: ${req.headers.origin || 'direct'}`);
-  res.json({ 
-    message: 'SLECO Tour Backend API - Healthy and Running', 
-    endpoints: '/api/health, /api/auth/*, etc.' 
-  });
-});
 
 // MongoDB Connection with retry logic
 const connectDB = async () => {
@@ -169,10 +120,5 @@ app.post('/api/contact', async (req, res) => {
 
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.get('/favicon.png', (req, res) => res.status(204).end());
-
-// Handle unmatched routes
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
-});
 
 export default app;
